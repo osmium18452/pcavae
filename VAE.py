@@ -72,6 +72,5 @@ class VAE(nn.Module):
         kl_loss = -0.5 * (1 + 2 * log_std - mu.pow(2) - torch.exp(2 * log_std))
         kl_loss = torch.sum(kl_loss)
         loss = recon_loss + kl_loss
-        mse_loss=F.mse_loss(recon,x)
-        return loss,mse_loss
+        return loss
 

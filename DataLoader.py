@@ -38,29 +38,20 @@ class DataLoader:
 
         self.train_non_constant_var = np.setdiff1d(np.arange(len(train_non_constant_var)), self.train_constant_var)
         self.test_non_constant_var = np.setdiff1d(np.arange(len(train_non_constant_var)), self.test_constant_var)
-        # print(type(self.train_non_constant_var))
-        # print(self.train_constant_var)
-        # print(type(self.test_non_constant_var))
-        # print(self.test_constant_var)
+
 
         self.nc_train_data = self.train_data[self.train_non_constant_var]
         self.nc_test_data = self.test_data[self.train_non_constant_var]
 
         if normalize:
+            print('normalized')
             train_data_var = np.var(self.nc_train_data, axis=1).reshape(-1, 1)
             train_data_mean = np.mean(self.nc_train_data, axis=1).reshape(-1, 1)
             test_data_var = np.var(self.nc_test_data, axis=1).reshape(-1, 1)
             test_data_mean = np.mean(self.nc_test_data, axis=1).reshape(-1, 1)
             self.nc_train_data = (self.nc_train_data - train_data_mean) / train_data_var
             self.nc_test_data = (self.nc_test_data - test_data_mean) / test_data_var
-            # print('norm:', self.nc_test_data.shape, self.nc_train_data.shape)
-            # print(train_data_var.shape, train_data_mean.shape)
-            # print(train_data_var)
-            # print(train_data_mean)
-            # print(train_data_var)
-            # print(train_data_mean)
-        # print(self.nc_train_data.shape)
-        # print(self.nc_test_data.shape)
+
 
     def prepare_data(self, graph_file, vae_window_size=1, cnn_window_size=1):
         f = open(graph_file, 'rb')
@@ -71,8 +62,8 @@ class DataLoader:
         self.__vae_dim_list = []
         # for i in parent_list:
         #     self.vae_dim_list.append(len(i))
-        # print(self.vae_dim_list)
-        # print(parent_list)
+        # print(self.__vae_dim_list)
+        # print('parent list:',parent_list)
         self.root_var = []
         self.vae_train_set = []
         self.vae_test_set = []
