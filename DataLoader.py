@@ -50,8 +50,8 @@ class DataLoader:
             print('normalized')
             self.nc_train_data = (self.nc_train_data - train_data_mean) / train_data_std
             self.nc_test_data = (self.nc_test_data - test_data_mean) / test_data_std
-        print(np.squeeze(train_data_mean), np.squeeze(train_data_std), np.squeeze(test_data_mean),
-              np.squeeze(test_data_std), sep='\n')
+        # print(np.squeeze(train_data_mean), np.squeeze(train_data_std), np.squeeze(test_data_mean),
+        #       np.squeeze(test_data_std), sep='\n')
 
     def prepare_data(self, graph_file, vae_window_size=1, cnn_window_size=1):
         f = open(graph_file, 'rb')
@@ -131,13 +131,17 @@ class DataLoader:
         return self.vae_test_set
 
     def load_cnn_train_set(self):
-        return self.cnn_train_set_x, self.cnn_train_set_y
+        return self.cnn_train_set_x.transpose(0,2,1), self.cnn_train_set_y
 
     def load_cnn_test_set(self):
-        return self.cnn_test_set_x, self.cnn_test_set_y
+        return self.cnn_test_set_x.transpose(0,2,1), self.cnn_test_set_y
 
     def load_label_set(self):
         return self.label_set
+
+    def load_cnn_channel(self):
+        # print(self.nc_train_data.shape)
+        return self.nc_train_data.shape[0]-len(self.vae_train_set)
 
     def load_vae_num(self):
         return len(self.vae_test_set)
@@ -172,13 +176,14 @@ if __name__ == '__main__':
     test_set_file = os.path.join(data_dir, dataset, 'test/machine-1-1.pkl')
     label_file = os.path.join(data_dir, dataset, 'label/machine-1-1.pkl')
     dataloader = DataLoader(train_set_file, test_set_file, label_file)
-    dataloader.prepare_data(os.path.join(map_dir, map), cnn_window_size=5, vae_window_size=1)
-    cnn_train_set = dataloader.load_cnn_train_set()
-    cnn_test_set = dataloader.load_cnn_test_set()
+    dataloader.prepare_data(os.path.join(map_dir, map), cnn_window_size=20, vae_window_size=1)
+    cnn_train_set_x,cnn_train_set_y = dataloader.load_cnn_train_set()
+    cnn_test_set_x,cnn_test_set_y = dataloader.load_cnn_test_set()
     vae_train_set = dataloader.load_vae_train_set()
     vae_test_set = dataloader.load_vae_test_set()
     label_set = dataloader.load_label_set()
-    print(cnn_test_set.shape, cnn_train_set.shape, dataloader.load_vae_num())
-    for i in range(dataloader.load_vae_num()):
-        print(vae_train_set[i].shape, vae_test_set[i].shape)
-    print(dataloader.load_vae_dim_list())
+    print(cnn_test_set_x.shape, cnn_train_set_x.shape, cnn_train_set_y.shape,cnn_test_set_y.shape,dataloader.load_vae_num())
+    # for i in range(dataloader.load_vae_num()):
+    #     print(vae_train_set[i].shape, vae_test_set[i].shape)
+    # print(dataloader.load_vae_dim_list())
+    # print(dataloader.load_cnn_num())

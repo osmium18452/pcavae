@@ -9,6 +9,7 @@ from torch import optim
 from DataLoader import DataLoader
 from VAE import VAE
 from IVAE import IVAE
+from ICNN import ICNN
 
 import numpy as np
 
@@ -43,8 +44,9 @@ if __name__ == '__main__':
     parser.add_argument("-w", "--window_size", default=20, type=int)
     parser.add_argument("-g", "--gpu_device", default="0", type=str)
     parser.add_argument('-N', '--normalize_data', action='store_true')
-    parser.add_argument('-p','--process',default=None,type=int)
-    parser.add_argument('-P','--parallel',action='store_true')
+    parser.add_argument('-p', '--process', default=None, type=int)
+    parser.add_argument('-P', '--parallel', action='store_true')
+    parser.add_argument('--figfile', default=None)
     args = parser.parse_args()
 
     latent_size = args.latent
@@ -55,8 +57,9 @@ if __name__ == '__main__':
     window_size = args.window_size
     gpu_device = args.gpu_device
     normalize = args.normalize_data
-    process=args.process
-    parallel=args.parallel
+    process = args.process
+    parallel = args.parallel
+    figfile = args.figfile
 
     data_dir = '/remote-home/liuwenbo/pycproj/tsdata/data'
     dataset = 'smd'
@@ -67,9 +70,14 @@ if __name__ == '__main__':
     label_file = os.path.join(data_dir, dataset, 'label/machine-1-1.pkl')
     map_file = os.path.join(map_dir, map)
 
-    ivae = IVAE(train_set_file, test_set_file, label_file, map_file, latent_size, gpu, learning_rate, window_size,
-                gpu_device, normalize)
+    dataloader = DataLoader(train_set_file, test_set_file, label_file, normalize=normalize)
+    dataloader.prepare_data(map_file, cnn_window_size=window_size, vae_window_size=1)
+
+    ivae = IVAE(dataloader, latent_size, gpu, learning_rate,  gpu_device)
+    icnn=ICNN(dataloader,window_size,gpu,learning_rate,gpu_device)
+    icnn.train(epoch,batch_size,gpu)
     if parallel:
-        ivae.train_in_parallel(epoch, batch_size, gpu, proc=process)
+        ivae.train_vaes_in_parallel(epoch, batch_size, gpu, proc=process)
     else:
-        ivae.train_in_serial(epoch, batch_size, gpu)
+        # ivae.train_cnns_in_serial(epoch,batch_size,gpu)
+        ivae.train_vaes_in_serial(epoch, batch_size, gpu, figfile=figfile)
