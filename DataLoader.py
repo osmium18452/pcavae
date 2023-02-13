@@ -39,19 +39,19 @@ class DataLoader:
         self.train_non_constant_var = np.setdiff1d(np.arange(len(train_non_constant_var)), self.train_constant_var)
         self.test_non_constant_var = np.setdiff1d(np.arange(len(train_non_constant_var)), self.test_constant_var)
 
-
         self.nc_train_data = self.train_data[self.train_non_constant_var]
         self.nc_test_data = self.test_data[self.train_non_constant_var]
 
+        train_data_std = np.std(self.nc_train_data, axis=1).reshape(-1, 1)
+        train_data_mean = np.mean(self.nc_train_data, axis=1).reshape(-1, 1)
+        test_data_std = np.std(self.nc_test_data, axis=1).reshape(-1, 1)
+        test_data_mean = np.mean(self.nc_test_data, axis=1).reshape(-1, 1)
         if normalize:
             print('normalized')
-            train_data_var = np.var(self.nc_train_data, axis=1).reshape(-1, 1)
-            train_data_mean = np.mean(self.nc_train_data, axis=1).reshape(-1, 1)
-            test_data_var = np.var(self.nc_test_data, axis=1).reshape(-1, 1)
-            test_data_mean = np.mean(self.nc_test_data, axis=1).reshape(-1, 1)
-            self.nc_train_data = (self.nc_train_data - train_data_mean) / train_data_var
-            self.nc_test_data = (self.nc_test_data - test_data_mean) / test_data_var
-
+            self.nc_train_data = (self.nc_train_data - train_data_mean) / train_data_std
+            self.nc_test_data = (self.nc_test_data - test_data_mean) / test_data_std
+        print(np.squeeze(train_data_mean), np.squeeze(train_data_std), np.squeeze(test_data_mean),
+              np.squeeze(test_data_std), sep='\n')
 
     def prepare_data(self, graph_file, vae_window_size=1, cnn_window_size=1):
         f = open(graph_file, 'rb')
@@ -161,7 +161,6 @@ class DataLoader:
                 if graph[i][j] == -1:
                     parents_list[j].append(i)
         return parents_list
-
 
 
 if __name__ == '__main__':
