@@ -20,5 +20,5 @@ class DrawTrainMSELoss:
             fig.show()
         else:
             fig.savefig(save_file)
-            print('saved to '+save_file)
         plt.close(fig)
+

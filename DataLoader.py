@@ -155,6 +155,26 @@ class DataLoader:
     def load_test_set_size(self):
         return self.vae_test_set[0].shape[0]
 
+    def load_cnn_test_set_ground_truth(self):
+        return self.cnn_test_set_y
+
+    def load_vae_test_set_ground_truth(self):
+        gt_list=[]
+        for i in range(self.load_vae_num()):
+            gt_list.append(np.squeeze(self.vae_test_set[i][:,:,0]))
+            # print(self.vae_test_set[i][:,:,0].shape)
+        return np.array(gt_list).transpose()
+
+    def load_obvious_anomaly_positions(self):
+        anomaly_vars=np.setdiff1d(self.test_non_constant_var,self.train_non_constant_var)
+        anomaly_position_list=[]
+        for i in anomaly_vars:
+            normal_value=self.train_data[i][0]
+            # print('test data shape',self.test_data.shape)
+            # print(np.where(self.test_data[i]!=normal_value))
+            anomaly_position_list+=(np.where(self.test_data[i]!=normal_value)[0].tolist())
+        return np.unique(anomaly_position_list)
+
     def get_parents(self, graph):
         nodes = graph.shape[0]
         parents_list = []
@@ -183,7 +203,11 @@ if __name__ == '__main__':
     vae_test_set = dataloader.load_vae_test_set()
     label_set = dataloader.load_label_set()
     print(cnn_test_set_x.shape, cnn_train_set_x.shape, cnn_train_set_y.shape,cnn_test_set_y.shape,dataloader.load_vae_num())
+    print(dataloader.train_non_constant_var,dataloader.test_non_constant_var,sep='\n')
+    print(np.setdiff1d(dataloader.test_non_constant_var,dataloader.train_non_constant_var))
+    print(dataloader.load_obvious_anomaly_positions())
     # for i in range(dataloader.load_vae_num()):
     #     print(vae_train_set[i].shape, vae_test_set[i].shape)
     # print(dataloader.load_vae_dim_list())
     # print(dataloader.load_cnn_num())
+

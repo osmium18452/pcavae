@@ -8,6 +8,7 @@ from CNN import CNN
 
 class ICNN:
     def __init__(self, dataloader, window_size, gpu, learning_rate, gpu_device):
+        self.recon = None
         self.train_set_size = dataloader.load_train_set_size()
         cnn_train_set_x, cnn_train_set_y = dataloader.load_cnn_train_set()
         cnn_test_set_x, cnn_test_set_y = dataloader.load_cnn_test_set()
@@ -18,6 +19,7 @@ class ICNN:
         self.cnn_validate_set_x = self.cnn_test_set_x[100:]
         self.cnn_validate_set_y = self.cnn_test_set_y[100:]
         self.cnn_channel = dataloader.load_cnn_channel()
+        self.test_set_size=dataloader.load_test_set_size()
 
         print('cnn train set shape', self.cnn_train_set_x.shape, self.cnn_train_set_y.shape)
 
@@ -34,6 +36,7 @@ class ICNN:
             pbar.set_description('training cnn')
             pbar.set_postfix_str("mse loss: -.-----e---")
             for i in range(epoch):
+                # print('batch size:',batch_size)
                 if i % 5 == 0:
                     shuffle = np.random.permutation(self.train_set_size)
                     self.cnn_train_set_x = self.cnn_train_set_x[shuffle]
@@ -41,8 +44,8 @@ class ICNN:
                 num_iter = self.train_set_size // batch_size
                 with tqdm(total=num_iter, ascii=True, leave=False) as subpbar:
                     for j in range(num_iter):
-                        batch_x = self.cnn_train_set_x[i * batch_size:(i + 1) * batch_size]
-                        batch_y = self.cnn_train_set_y[i * batch_size:(i + 1) * batch_size]
+                        batch_x = self.cnn_train_set_x[j * batch_size:(j + 1) * batch_size]
+                        batch_y = self.cnn_train_set_y[j * batch_size:(j + 1) * batch_size]
                         if gpu:
                             batch_x = batch_x.cuda(self.device)
                             batch_y = batch_y.cuda(self.device)
@@ -69,6 +72,30 @@ class ICNN:
                 mse = np.mean((recon_val.cpu().detach().numpy() - self.cnn_validate_set_y.cpu().detach().numpy()) ** 2)
                 pbar.set_postfix_str('mse loss: %.5e' % mse)
                 pbar.update()
+
+    def infer(self,batch_size,gpu):
+        self.recon=np.zeros(self.cnn_channel).reshape((1,self.cnn_channel))
+        iters=self.test_set_size//batch_size
+        with tqdm(total=iters,ascii=True) as pbar:
+            pbar.set_description('cnn inferring')
+            for i in range(iters):
+                batch_x=self.cnn_test_set_x[i*batch_size:(i+1)*batch_size]
+                if gpu:
+                    batch_x=batch_x.cuda(self.device)
+                recon=self.cnn(batch_x).cpu().detach().numpy()
+                self.recon=np.concatenate((self.recon,recon),axis=0)
+                pbar.update()
+        if iters*batch_size<self.test_set_size:
+            batch_x=self.cnn_test_set_x[iters*batch_size:]
+            if gpu:
+                batch_x=batch_x.cuda(self.device)
+            recon=self.cnn(batch_x).cpu().detach().numpy()
+            self.recon=np.concatenate((self.recon,recon),axis=0)
+        self.recon=np.array(self.recon[1:])
+        return self.recon
+
+
+
 
         # create cnns
         # self.cnn_list = []

@@ -1,6 +1,7 @@
 import multiprocessing as mp
 import os
 from tqdm import tqdm
+import time
 
 import numpy as np
 import torch
@@ -14,6 +15,7 @@ from Draw import DrawTrainMSELoss
 class IVAE:
     def __init__(self, dataloader, latent_size, gpu, learning_rate, gpu_device):
         self.train_set_size = dataloader.load_train_set_size()
+        self.test_set_size = dataloader.load_test_set_size()
         # load data
         vae_train_set = dataloader.load_vae_train_set()
         vae_test_set = dataloader.load_vae_test_set()
@@ -43,7 +45,12 @@ class IVAE:
                 self.vae_list[i].cuda(device=self.vae_device_list[i])
             self.vae_optimizer_list.append(optim.Adam(self.vae_list[i].parameters(), lr=learning_rate))
 
-
+    def get_device_list(self, gpu_devices, vae_num):
+        ret = []
+        li = gpu_devices.strip().split(',')
+        for i in li:
+            ret.append(int(i))
+        return np.tile(np.array(ret), vae_num)[:vae_num]
 
     def train_single_vae_one_epoch(self, vae_no, batch_size, gpu=False, pbar=False) -> np.ndarray:
         num_iter = self.train_set_size // batch_size
@@ -59,6 +66,7 @@ class IVAE:
                 self.vae_optimizer_list[vae_no].step()
                 mse = torch.mean((recon - batch_x) ** 2).item()
                 self.subpbar.set_postfix_str("mse loss: %.5e" % (mse))
+                # print(self.pbar.postfix)
                 self.subpbar.update()
 
             if num_iter * batch_size < self.train_set_size:
@@ -100,8 +108,8 @@ class IVAE:
 
     # test train
     def train_vaes_in_parallel(self, epoch, batch_size, gpu, proc=None):
-        pbar = tqdm(total=epoch, ascii=True)
-        pbar.set_postfix_str("mse loss: -.-----e---")
+        self.pbar = tqdm(total=epoch, ascii=True)
+        self.pbar.set_postfix_str("mse loss: -.-----e---")
         # build validate set, useful data only
         val_list = []
         for i in range(self.vae_num):
@@ -124,14 +132,15 @@ class IVAE:
             # train single vae
             recon_list = np.array(recon_list)
             mse = np.mean((recon_list - val_list) ** 2)
-            pbar.set_postfix_str("mse loss: %.5e" % (mse))
-            pbar.update()
-        pbar.close()
+            self.pbar.set_postfix_str("mse loss: %.5e" % (mse))
+            self.pbar.update()
+        self.pbar.close()
 
     def train_vaes_in_serial(self, epoch, batch_size, gpu, figfile):
-        with tqdm(total=epoch, ascii=True) as pbar:
-            pbar.set_postfix_str("mse loss: -.-----e---")
-            pbar.set_description("training vaes")
+        self.start_time = time.time()
+        with tqdm(total=epoch, ascii=True) as self.pbar:
+            self.pbar.set_postfix_str("mse loss: -.-----e---")
+            self.pbar.set_description("training vaes")
             val_list = []
             for i in range(self.vae_num):
                 val_list.append(np.squeeze(self.vae_validate_set[i][:, 0].numpy()))
@@ -150,15 +159,44 @@ class IVAE:
                     for i in range(self.vae_num):
                         recon_list.append(self.train_single_vae_one_epoch(i, batch_size, gpu, True))
                 recon_list = np.array(recon_list)
-                mse = np.mean((recon_list - val_list) ** 2)
+                mse = np.mean((recon_list - val_list) ** 2).item()
                 draw.add_mse_loss(mse)
-                pbar.set_postfix_str("mse loss: %.5e" % (mse))
-                pbar.update()
+                self.pbar.update()
         draw.draw(figfile)
 
-    def get_device_list(self, gpu_devices, vae_num):
-        ret = []
-        li = gpu_devices.strip().split(',')
-        for i in li:
-            ret.append(int(i))
-        return np.tile(np.array(ret), vae_num)[:vae_num]
+    def infer_in_serial(self, batch_size, gpu):
+        self.recon = np.zeros(self.vae_num).reshape((1, self.vae_num))
+        iters = self.test_set_size//batch_size
+        with tqdm(total=iters,ascii=True) as pbar:
+            pbar.set_description('ivae inferring')
+            for i in range(iters):
+                cache_list=[]
+                for vae_no in range(self.vae_num):
+                    batch_x=self.vae_test_set[vae_no][i*batch_size:(i+1)*batch_size]
+                    if gpu:
+                        batch_x=batch_x.cuda(device=self.vae_device_list[vae_no])
+                    recon=self.vae_list[vae_no](batch_x)[0].cpu().detach().numpy()[:,0].reshape((-1,))
+                    cache_list.append(recon)
+                self.recon=np.concatenate((self.recon,np.array(cache_list).transpose()),axis=0)
+                pbar.update()
+        if iters*batch_size<self.test_set_size:
+            cache_list=[]
+            for vae_no in range(self.vae_num):
+                batch_x=self.vae_test_set[vae_no][iters*batch_size:]
+                if gpu:
+                    batch_x=batch_x.cuda(self.vae_device_list[vae_no])
+                recon=self.vae_list[vae_no](batch_x)[0].cpu().detach().numpy()[:,0].reshape((-1,))
+                cache_list.append(recon)
+            self.recon=np.concatenate((self.recon,np.array(cache_list).transpose()),axis=0)
+        return self.recon[1:]
+
+
+
+
+
+
+
+
+
+
+
