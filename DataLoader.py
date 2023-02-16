@@ -1,6 +1,7 @@
 import os.path
 import pickle
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -55,7 +56,7 @@ class DataLoader:
 
     def prepare_data(self, graph_file, vae_window_size=1, cnn_window_size=1):
         f = open(graph_file, 'rb')
-        graph = pickle.load(f)['G'].graph
+        graph = pickle.load(f)
         f.close()
         # print(graph)
         parent_list = self.get_parents(graph)
@@ -173,7 +174,7 @@ class DataLoader:
             # print('test data shape',self.test_data.shape)
             # print(np.where(self.test_data[i]!=normal_value))
             anomaly_position_list+=(np.where(self.test_data[i]!=normal_value)[0].tolist())
-        return np.unique(anomaly_position_list)
+        return np.unique(anomaly_position_list).astype(int)
 
     def get_parents(self, graph):
         nodes = graph.shape[0]
@@ -185,6 +186,18 @@ class DataLoader:
                 if graph[i][j] == -1:
                     parents_list[j].append(i)
         return parents_list
+
+    def draw_train_set(self):
+        for i in range(self.load_vae_num()):
+            fig,ax=plt.subplots()
+            print(self.vae_train_set[i].shape)
+            y=self.vae_train_set[i][:,:,0]
+            x=np.arange(self.load_train_set_size())
+            ax.plot(x,y,linewidth=1)
+            fig.set_figwidth(10)
+            fig.set_figheight(5)
+            fig.savefig('save/trainset_'+str(i+2)+'.png',dpi=600)
+            plt.close(fig)
 
 
 if __name__ == '__main__':
