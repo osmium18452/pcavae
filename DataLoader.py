@@ -47,6 +47,7 @@ class DataLoader:
         train_data_mean = np.mean(self.nc_train_data, axis=1).reshape(-1, 1)
         test_data_std = np.std(self.nc_test_data, axis=1).reshape(-1, 1)
         test_data_mean = np.mean(self.nc_test_data, axis=1).reshape(-1, 1)
+        print('\033[0;33mtrain/test set size\033[0m',self.nc_train_data.shape,self.nc_test_data.shape)
         if normalize:
             print('normalized')
             self.nc_train_data = (self.nc_train_data - train_data_mean) / train_data_std
@@ -60,6 +61,7 @@ class DataLoader:
         f.close()
         # print(graph)
         parent_list = self.get_parents(graph)
+        print('parent list len',len(parent_list))
         self.__vae_dim_list = []
         # for i in parent_list:
         #     self.vae_dim_list.append(len(i))
@@ -124,6 +126,8 @@ class DataLoader:
 
         self.train_set_size = self.cnn_train_set.shape[0]
         self.test_set_size = self.cnn_test_set.shape[0]
+
+
 
     def load_vae_train_set(self):
         return self.vae_train_set

@@ -186,6 +186,7 @@ class IVAE:
                 recon_list = np.array(recon_list)
                 mse = np.mean((recon_list - val_list) ** 2).item()
                 draw.add_mse_loss(mse)
+                self.pbar.set_postfix_str("mse loss: %.5e" % (mse))
                 self.pbar.update()
         draw.draw(figfile)
 
