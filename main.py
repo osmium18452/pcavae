@@ -169,7 +169,7 @@ if __name__ == '__main__':
         np.concatenate((obvious_abnormal_position, suspicious_anomalies))[:anomaly_num])
     print('anomaly position dtype', predicted_anomaly_positions.dtype, suspicious_anomalies.dtype,
           obvious_abnormal_position.dtype)
-    # print('pred an shape',predicted_anomaly_positions)
+    # print('pred and shape',predicted_anomaly_positions)
 
     # calculate scores
     recall, precision, f1 = cal_metrics(np.where(labels == 1)[0], predicted_anomaly_positions.astype(int),
