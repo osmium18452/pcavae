@@ -43,15 +43,16 @@ class DataLoader:
         self.nc_train_data = self.train_data[self.train_non_constant_var]
         self.nc_test_data = self.test_data[self.train_non_constant_var]
 
-        train_data_std = np.std(self.nc_train_data, axis=1).reshape(-1, 1)
-        train_data_mean = np.mean(self.nc_train_data, axis=1).reshape(-1, 1)
-        test_data_std = np.std(self.nc_test_data, axis=1).reshape(-1, 1)
-        test_data_mean = np.mean(self.nc_test_data, axis=1).reshape(-1, 1)
+        self.train_data_std = np.std(self.nc_train_data, axis=1).reshape(-1, 1)
+        self.train_data_mean = np.mean(self.nc_train_data, axis=1).reshape(-1, 1)
+        self.test_data_std = np.std(self.nc_train_data, axis=1).reshape(-1, 1)
+        self.test_data_mean = np.mean(self.nc_train_data, axis=1).reshape(-1, 1)
+        # both should use train set std and mean to normalize. because test set std and mean are abnormal
         print('\033[0;33mtrain/test set size\033[0m',self.nc_train_data.shape,self.nc_test_data.shape)
         if normalize:
             print('normalized')
-            self.nc_train_data = (self.nc_train_data - train_data_mean) / train_data_std
-            self.nc_test_data = (self.nc_test_data - test_data_mean) / test_data_std
+            self.nc_train_data = (self.nc_train_data - self.train_data_mean) / self.train_data_std
+            self.nc_test_data = (self.nc_test_data - self.test_data_mean) / self.test_data_std
         # print(np.squeeze(train_data_mean), np.squeeze(train_data_std), np.squeeze(test_data_mean),
         #       np.squeeze(test_data_std), sep='\n')
 
@@ -62,9 +63,10 @@ class DataLoader:
         # print(graph)
         parent_list = self.get_parents(graph)
         print('parent list len',len(parent_list))
-        self.cvae_window_size=vae_window_size-1
+        self.cvae_window_size=cnn_window_size-1
         self.__vae_dim_list = []
         self.root_var = []
+        self.non_root_var=[]
         self.vae_train_set = []
         self.vae_test_set = []
         for index, list in enumerate(parent_list):
@@ -75,7 +77,10 @@ class DataLoader:
                 self.vae_train_set.append(self.nc_train_data[[index] + list].transpose())
                 self.vae_test_set.append(self.nc_test_data[[index] + list].transpose())
                 self.__vae_dim_list.append(len(list))
+                self.non_root_var.append(index)
         # print(self.root_var)
+        self.root_var=np.array(self.root_var)
+        self.non_root_var=np.array(self.non_root_var)
         self.cnn_train_set = self.nc_train_data[self.root_var].transpose()
         self.cnn_test_set = self.nc_test_data[self.root_var].transpose()
 
@@ -126,11 +131,26 @@ class DataLoader:
 
 
 
+    def load_train_set_norm_params(self):
+        re_index=np.concatenate((self.root_var,self.non_root_var))
+        return self.train_data_std[re_index],self.train_data_mean[re_index]
+
+    def load_test_set_norm_params(self):
+        re_index=np.concatenate((self.root_var,self.non_root_var))
+        return self.test_data_std[re_index],self.test_data_mean[re_index]
+
     def load_vae_train_set(self):
-        return self.vae_train_set
+        # print('\033[0;33mvae train set mem\033[0m',id(self.vae_train_set))
+        return self.vae_train_set.copy()
+
+    def load_train_set_ground_truth(self):
+        train_set_ground_truth=[]
+        for i in self.vae_train_set:
+            train_set_ground_truth.append(np.squeeze(i)[:,0])
+        return np.concatenate((self.cnn_train_set_y.transpose(),np.array(train_set_ground_truth)))
 
     def load_vae_test_set(self):
-        return self.vae_test_set
+        return self.vae_test_set.copy()
 
     def load_cnn_train_set(self):
         return self.cnn_train_set_x.transpose(0,2,1), self.cnn_train_set_y
@@ -215,26 +235,24 @@ class DataLoader:
 
 
 if __name__ == '__main__':
+    which_set = '1-1'
+
     data_dir = '/remote-home/liuwenbo/pycproj/tsdata/data'
     dataset = 'smd'
-    map_dir = '/remote-home/liuwenbo/pycproj/tsdata/maps/smd'
-    map = 'machine-1-1.camap.pkl'
-    train_set_file = os.path.join(data_dir, dataset, 'train/machine-1-1.pkl')
-    test_set_file = os.path.join(data_dir, dataset, 'test/machine-1-1.pkl')
-    label_file = os.path.join(data_dir, dataset, 'label/machine-1-1.pkl')
-    dataloader = DataLoader(train_set_file, test_set_file, label_file)
-    dataloader.prepare_data(os.path.join(map_dir, map), cnn_window_size=20, vae_window_size=1)
-    cnn_train_set_x,cnn_train_set_y = dataloader.load_cnn_train_set()
-    cnn_test_set_x,cnn_test_set_y = dataloader.load_cnn_test_set()
-    vae_train_set = dataloader.load_vae_train_set()
-    vae_test_set = dataloader.load_vae_test_set()
-    label_set = dataloader.load_label_set()
-    print(cnn_test_set_x.shape, cnn_train_set_x.shape, cnn_train_set_y.shape,cnn_test_set_y.shape,dataloader.load_vae_num())
-    print(dataloader.train_non_constant_var,dataloader.test_non_constant_var,sep='\n')
-    print(np.setdiff1d(dataloader.test_non_constant_var,dataloader.train_non_constant_var))
-    print(dataloader.load_obvious_anomaly_positions())
-    # for i in range(dataloader.load_vae_num()):
-    #     print(vae_train_set[i].shape, vae_test_set[i].shape)
-    # print(dataloader.load_vae_dim_list())
-    # print(dataloader.load_cnn_num())
+    map_dir = '/remote-home/liuwenbo/pycproj/tsdata/maps/npmap'
+    map = 'machine-' + which_set + '.npmap.pkl'
+    train_set_file = os.path.join(data_dir, dataset, 'train/machine-' + which_set + '.pkl')
+    test_set_file = os.path.join(data_dir, dataset, 'test/machine-' + which_set + '.pkl')
+    label_file = os.path.join(data_dir, dataset, 'label/machine-' + which_set + '.pkl')
+    map_file = os.path.join(map_dir, map)
+
+    dataloader = DataLoader(train_set_file, test_set_file, label_file, normalize=True)
+    dataloader.prepare_data(map_file, cnn_window_size=20, vae_window_size=1)
+    train_std,train_mean=dataloader.load_train_set_norm_params()
+    test_std,test_mean=dataloader.load_test_set_norm_params()
+    print(train_std.shape,train_mean.shape)
+    print(test_std.shape,test_mean.shape)
+    cnn_train_x,cnn_train_y=dataloader.load_cnn_train_set()
+    print(cnn_train_x.shape,cnn_train_y.shape)
+    print(dataloader.load_train_set_ground_truth().shape)
 

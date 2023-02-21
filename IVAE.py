@@ -16,6 +16,7 @@ from Draw import DrawTrainMSELoss
 class IVAE:
     def __init__(self, dataloader, latent_size, gpu, learning_rate, gpu_device):
         torch.multiprocessing.set_sharing_strategy('file_system')
+        self.dataloader = dataloader
 
         self.train_set_size = dataloader.load_train_set_size()
         self.test_set_size = dataloader.load_test_set_size()
@@ -42,11 +43,15 @@ class IVAE:
         self.vae_num = dataloader.load_vae_num()
         self.vae_device_list = self.get_device_list(gpu_device, vae_num=self.vae_num)
         print('device list', self.vae_device_list, gpu_device)
+        pbar=tqdm(total=len(self.vae_dim_list),ascii=True)
+        pbar.set_description('initiating vaes...')
         for i, size in enumerate(self.vae_dim_list):
             self.vae_list.append(VAE(size, latent_size, i))
             if gpu:
                 self.vae_list[i].cuda(device=self.vae_device_list[i])
             self.vae_optimizer_list.append(optim.Adam(self.vae_list[i].parameters(), lr=learning_rate))
+            pbar.update()
+        pbar.close()
 
     def get_device_list(self, gpu_devices, vae_num):
         ret = []
@@ -215,3 +220,32 @@ class IVAE:
                 cache_list.append(recon)
             self.recon = np.concatenate((self.recon, np.array(cache_list).transpose()), axis=0)
         return self.recon[1:]
+
+    def infer_in_serial_train_set(self, batch_size, gpu):
+        self.recon_train = np.zeros(self.vae_num).reshape((1, self.vae_num))
+        vae_train_set = self.dataloader.load_vae_train_set()
+        for i in range(len(vae_train_set)):
+            vae_train_set[i] = (torch.squeeze(torch.Tensor(vae_train_set[i])))
+        iters = self.test_set_size // batch_size
+        with tqdm(total=iters, ascii=True) as pbar:
+            pbar.set_description('ivae train set inferring')
+            for i in range(iters):
+                cache_list = []
+                for vae_no in range(self.vae_num):
+                    batch_x = vae_train_set[vae_no][i * batch_size:(i + 1) * batch_size]
+                    if gpu:
+                        batch_x = batch_x.cuda(device=self.vae_device_list[vae_no])
+                    recon = self.vae_list[vae_no](batch_x)[0].cpu().detach().numpy()[:, 0].reshape((-1,))
+                    cache_list.append(recon)
+                self.recon_train = np.concatenate((self.recon_train, np.array(cache_list).transpose()), axis=0)
+                pbar.update()
+        if iters * batch_size < self.test_set_size:
+            cache_list = []
+            for vae_no in range(self.vae_num):
+                batch_x = vae_train_set[vae_no][iters * batch_size:]
+                if gpu:
+                    batch_x = batch_x.cuda(self.vae_device_list[vae_no])
+                recon = self.vae_list[vae_no](batch_x)[0].cpu().detach().numpy()[:, 0].reshape((-1,))
+                cache_list.append(recon)
+            self.recon_train = np.concatenate((self.recon_train, np.array(cache_list).transpose()), axis=0)
+        return self.recon_train[1:]

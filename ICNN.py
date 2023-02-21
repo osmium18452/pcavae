@@ -9,6 +9,7 @@ from CNN import CNN
 class ICNN:
     def __init__(self, dataloader, window_size, gpu, learning_rate, gpu_device):
         self.recon = None
+        self.dataloader=dataloader
         self.train_set_size = dataloader.load_train_set_size()
         cnn_train_set_x, cnn_train_set_y = dataloader.load_cnn_train_set()
         cnn_test_set_x, cnn_test_set_y = dataloader.load_cnn_test_set()
@@ -93,6 +94,29 @@ class ICNN:
             self.recon=np.concatenate((self.recon,recon),axis=0)
         self.recon=np.array(self.recon[1:])
         return self.recon
+
+    def infer_train_set(self,batch_size,gpu):
+        self.train_recon=np.zeros(self.cnn_channel).reshape((1,self.cnn_channel))
+        iters=self.train_set_size//batch_size
+        train_set_x,train_set_y=self.dataloader.load_cnn_train_set()
+        train_set_x=torch.Tensor(train_set_x)
+        with tqdm(total=iters,ascii=True) as pbar:
+            pbar.set_description('cnn inferring')
+            for i in range(iters):
+                batch_x=train_set_x[i*batch_size:(i+1)*batch_size]
+                if gpu:
+                    batch_x=batch_x.cuda(self.device)
+                recon=self.cnn(batch_x).cpu().detach().numpy()
+                self.train_recon=np.concatenate((self.train_recon,recon),axis=0)
+                pbar.update()
+        if iters*batch_size<self.train_set_size:
+            batch_x=train_set_x[iters*batch_size:]
+            if gpu:
+                batch_x=batch_x.cuda(self.device)
+            recon=self.cnn(batch_x).cpu().detach().numpy()
+            self.train_recon=np.concatenate((self.train_recon,recon),axis=0)
+        self.train_recon=np.array(self.train_recon[1:])
+        return self.train_recon
 
 
 
