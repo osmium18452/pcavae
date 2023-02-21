@@ -90,6 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--process', default=None, type=int)
     parser.add_argument("-w", "--window_size", default=20, type=int)
     parser.add_argument('--which_set',default='1-1',type=str)
+    parser.add_argument('--ICVAE',action='store_true')
     args = parser.parse_args()
 
     latent_size = args.latent
@@ -104,6 +105,7 @@ if __name__ == '__main__':
     process = args.process
     parallel = args.parallel
     figfile = args.figfile
+    ICVAE=args.ICVAE
 
     which_set=args.which_set
 
@@ -117,7 +119,7 @@ if __name__ == '__main__':
     map_file = os.path.join(map_dir, map)
 
     dataloader = DataLoader(train_set_file, test_set_file, label_file, normalize=normalize)
-    dataloader.prepare_data(map_file, cnn_window_size=window_size, vae_window_size=1)
+    dataloader.prepare_data(map_file, cnn_window_size=window_size, vae_window_size=window_size)
     # dataloader.draw_train_set()
 
     ivae = IVAE(dataloader, latent_size, gpu, learning_rate, gpu_device)

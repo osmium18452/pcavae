@@ -62,11 +62,8 @@ class DataLoader:
         # print(graph)
         parent_list = self.get_parents(graph)
         print('parent list len',len(parent_list))
+        self.cvae_window_size=vae_window_size-1
         self.__vae_dim_list = []
-        # for i in parent_list:
-        #     self.vae_dim_list.append(len(i))
-        # print(self.__vae_dim_list)
-        # print('parent list:',parent_list)
         self.root_var = []
         self.vae_train_set = []
         self.vae_test_set = []
@@ -169,6 +166,19 @@ class DataLoader:
             gt_list.append(np.squeeze(self.vae_test_set[i][:,:,0]))
             # print(self.vae_test_set[i][:,:,0].shape)
         return np.array(gt_list).transpose()
+
+    def load_cvae_train_data(self):
+        cvae_train_input=self.vae_train_set[:,-1]
+        cvae_train_condition=self.vae_train_set[:,:-1]
+        return cvae_train_input,cvae_train_condition
+
+    def load_cvae_test_data(self):
+        cvae_test_input=self.vae_test_set[:,-1]
+        cvae_test_condition=self.vae_test_set[:,:-1]
+        return cvae_test_input,cvae_test_condition
+
+    def load_cvae_test_ground_truth(self):
+        return self.vae_test_set[:,-1]
 
     def load_obvious_anomaly_positions(self):
         anomaly_vars=np.setdiff1d(self.test_non_constant_var,self.train_non_constant_var)
