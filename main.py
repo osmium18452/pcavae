@@ -110,8 +110,11 @@ if __name__ == '__main__':
     figfile = args.figfile
     ICVAE = args.ICVAE
     save_dir = args.save_dir
-
     which_set = args.which_set
+
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+
 
     data_dir = '/remote-home/liuwenbo/pycproj/tsdata/data'
     dataset = 'smd'
@@ -130,7 +133,7 @@ if __name__ == '__main__':
     icnn = ICNN(dataloader, window_size, gpu, learning_rate, gpu_device)
     icnn.train(epoch, batch_size, gpu)
     cnn_recon = icnn.infer(batch_size, gpu)
-    cnn_train_recon=icnn.infer_train_set(batch_size,gpu)
+    cnn_train_recon=icnn.infer_train_set(batch_size,gpu).transpose()
     if parallel:
         ivae.train_vaes_in_parallel(epoch, batch_size, gpu, proc=process)
         ivae_recon = None
@@ -191,10 +194,11 @@ if __name__ == '__main__':
     abnormal_point = abnormal_point.reshape(1, -1).repeat(200, axis=0)
     ax1.imshow(np.repeat(ground_truth, 200, axis=0), label='train')
     ax2.imshow(np.repeat(recon, 200, axis=0), label='test')
-    ax3.imshow(abnormal_point)
+    ax3.imshow(abnormal_point,cmap='hot')
     ax1.set_title('test ground truth')
     ax2.set_title('test recon')
     ax3.set_title('abnormal points')
+    fig.tight_layout()
     fig.set_dpi(300)
     fig.savefig(os.path.join(save_dir, 'test.and.recon.fig.png'), dpi=300)
     plt.close(fig)
@@ -211,7 +215,7 @@ if __name__ == '__main__':
 
     print('\033[0;33mtrain set ground truth shape \033[0m', train_set_ground_truth.shape[0])
     for i in range(train_set_ground_truth.shape[0]):
-        pool.apply_async(draw_gt_and_recon, args=(train_set_ground_truth[i], ivae_train_recon[i], None, None, None,
+        pool.apply_async(draw_gt_and_recon, args=(train_set_ground_truth[i], train_set_recon[i], None, None, None,
                                                   os.path.join(save_dir, 'train_recon_gt' + str(i) + '.png')))
     pool.close()
     pool.join()
@@ -222,6 +226,7 @@ if __name__ == '__main__':
     ax2.imshow(np.repeat(ivae_train_recon, 200, axis=0), label='test')
     ax1.set_title('train ground truth')
     ax2.set_title('train recon')
+    fig.tight_layout()
     fig.set_dpi(300)
     fig.savefig(os.path.join(save_dir, 'train.and.recon.fig.png'), dpi=300)
     plt.close(fig)
