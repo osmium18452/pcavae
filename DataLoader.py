@@ -55,13 +55,14 @@ class DataLoader:
         #       np.squeeze(test_data_std), sep='\n')
 
     def prepare_data(self, graph_file, vae_window_size=1, cnn_window_size=1):
+        total_train_sample=self.train_data.shape[1]-max(vae_window_size,cnn_window_size)+1
+        print('\033[0;35m',total_train_sample,self.train_data.shape,'\033[0m')
         f = open(graph_file, 'rb')
         graph = pickle.load(f)
         f.close()
         # print(graph)
         parent_list = self.get_parents(graph)
         print('parent list len', len(parent_list))
-        self.cvae_window_size = cnn_window_size - 1
         self.__vae_dim_list = []
         self.root_var = []
         self.non_root_var = []
@@ -158,16 +159,16 @@ class DataLoader:
         if self.root_var is not None:
             re_index = np.concatenate((self.root_var, self.non_root_var))
         else:
-            re_index=np.array(self.non_root_var)
+            re_index = np.array(self.non_root_var)
         return self.train_data_std[re_index], self.train_data_mean[re_index]
 
     def load_test_set_norm_params(self):
-        print('root_var',self.root_var)
+        print('root_var', self.root_var)
         if self.root_var is not None:
             re_index = np.concatenate((self.root_var, self.non_root_var))
         else:
-            re_index=np.array(self.non_root_var)
-        print('re index',len(re_index))
+            re_index = np.array(self.non_root_var)
+        print('re index', len(re_index))
         return self.test_data_std[re_index], self.test_data_mean[re_index]
 
     def load_vae_train_set(self):
@@ -210,7 +211,10 @@ class DataLoader:
     def load_train_set_ground_truth(self):
         train_set_ground_truth = []
         for i in self.vae_train_set:
-            train_set_ground_truth.append(np.squeeze(i)[:, 0])
+            # print(i.shape)
+            train_set_ground_truth.append(i[:, -1, 0])
+            # print(train_set_ground_truth[-1].shape)
+        # print('\033[0;33m',train_set_ground_truth,'\033[0m')
         if self.cnn_train_set_y is not None:
             return np.concatenate((self.cnn_train_set_y.transpose(), np.array(train_set_ground_truth)))
         else:
@@ -258,10 +262,8 @@ class DataLoader:
         anomaly_position_list = []
         for i in anomaly_vars:
             normal_value = self.train_data[i][0]
-            # print('test data shape',self.test_data.shape)
-            # print(np.where(self.test_data[i]!=normal_value))
             anomaly_position_list += (np.where(self.test_data[i] != normal_value)[0].tolist())
-        return np.unique(anomaly_position_list).astype(int)
+        return np.unique(anomaly_position_list).astype(int) - (self.test_data.shape[1] - self.load_test_set_size())
 
     def get_parents(self, graph):
         nodes = graph.shape[0]

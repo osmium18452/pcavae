@@ -62,7 +62,7 @@ class ICVAE:
             ret.append(int(i))
         return np.tile(np.array(ret), vae_num)[:vae_num]
 
-    def train_single_vae_one_epoch(self, cvae_no, batch_size, gpu=False) -> np.ndarray:
+    def train_single_cvae_one_epoch(self, cvae_no, batch_size, gpu=False) -> np.ndarray:
         num_iter = self.train_set_size // batch_size
         for i in range(num_iter):
             batch_input = self.train_input[cvae_no][i * batch_size:(i + 1) * batch_size]
@@ -122,7 +122,7 @@ class ICVAE:
                 num_iter = self.train_set_size // batch_size
                 with tqdm(total=num_iter * self.cvae_num, ascii=True, leave=False) as self.subpbar:
                     for j in range(self.cvae_num):
-                        recon_list.append(self.train_single_vae_one_epoch(j, batch_size, gpu))
+                        recon_list.append(self.train_single_cvae_one_epoch(j, batch_size, gpu))
                 recon_list = np.array(recon_list)
                 mse = np.mean((recon_list - val_list) ** 2).item()
                 self.pbar.set_postfix_str("mse loss: %.5e" % (mse))
