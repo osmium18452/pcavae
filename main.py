@@ -2,6 +2,8 @@ import argparse
 import multiprocessing as mp
 import os
 import pickle
+import platform
+
 import matplotlib.pyplot as plt
 
 import torch
@@ -124,9 +126,13 @@ if __name__ == '__main__':
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
 
-    data_dir = '/remote-home/liuwenbo/pycproj/tsdata/data'
+    if platform.system()=='Windows':
+        data_dir = 'E:\\Pycharm Projects\\causal.dataset\\data'
+        map_dir = 'E:\\Pycharm Projects\\causal.dataset\\maps\\npmap'
+    else:
+        data_dir = '/remote-home/liuwenbo/pycproj/tsdata/data'
+        map_dir = '/remote-home/liuwenbo/pycproj/tsdata/maps/npmap'
     dataset = 'smd'
-    map_dir = '/remote-home/liuwenbo/pycproj/tsdata/maps/npmap'
     map = 'machine-' + which_set + '.npmap.pkl'
     train_set_file = os.path.join(data_dir, dataset, 'train/machine-' + which_set + '.pkl')
     test_set_file = os.path.join(data_dir, dataset, 'test/machine-' + which_set + '.pkl')
@@ -151,11 +157,13 @@ if __name__ == '__main__':
         ivae_train_recon = ivae.infer_in_serial_train_set(batch_size, gpu).transpose()
     icnn = ICNN(dataloader, cnn_window_size, gpu, learning_rate, gpu_device)
 
+    icnn.train(epoch, batch_size, gpu)
+    cnn_recon = icnn.infer(batch_size, gpu)
+    cnn_train_recon = icnn.infer_train_set(batch_size, gpu).transpose()
     try:
-        icnn.train(epoch, batch_size, gpu)
-        cnn_recon = icnn.infer(batch_size, gpu)
-        cnn_train_recon = icnn.infer_train_set(batch_size, gpu).transpose()
-    except:
+        pass
+    except Exception as e:
+        print('\033[0;35m',e,'\033[0m')
         cnn_recon = None
         cnn_train_recon = None
 
@@ -168,7 +176,8 @@ if __name__ == '__main__':
     print(labels.shape)
 
     try:
-        print(ivae_recon.shape,cnn_recon.shape)
+        print('-------------------------')
+        print('\033[0;35m',type(ivae_recon),type(cnn_recon),'\033[0m')
         recon = np.concatenate((cnn_recon.transpose(), ivae_recon.transpose()), axis=0)
         ground_truth = np.concatenate((cnn_ground_truth.transpose(), vae_ground_truth.transpose()), axis=0)
     except:
@@ -178,6 +187,7 @@ if __name__ == '__main__':
 
     if normalize:
         test_std, test_mean = dataloader.load_test_set_norm_params()
+        print(recon.shape,test_std.shape,test_mean.shape)
         recon = recon * test_std + test_mean
         ground_truth = ground_truth * test_std + test_mean
 

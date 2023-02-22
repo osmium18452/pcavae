@@ -57,7 +57,7 @@ class DataLoader:
     def prepare_data(self, graph_file, vae_window_size=1, cnn_window_size=1):
         total_train_sample=self.train_data.shape[1]-max(vae_window_size,cnn_window_size)+1
         total_test_sample=self.test_data.shape[1]-max(vae_window_size,cnn_window_size)+1
-        # print('\033[0;35m',total_train_sample,self.train_data.shape,'\033[0m')
+        print('\033[0;35mtrain/test samples',total_train_sample,total_test_sample,'\033[0m')
         f = open(graph_file, 'rb')
         graph = pickle.load(f)
         f.close()
@@ -108,9 +108,10 @@ class DataLoader:
         train_cnn_add = np.repeat(np.arange(self.train_data_size - cnn_window_size + 1), cnn_window_size).reshape(-1,
                                                                                                                   cnn_window_size)
         train_cnn_index = train_cnn_full_window + train_cnn_add
+        print('train cnn index shape',train_cnn_index.shape)
         if self.root_var is not None:
             self.cnn_train_set_y = self.cnn_train_set[-total_train_sample:]
-            self.cnn_train_set_x = self.cnn_train_set[train_cnn_index[:-1]][-total_train_sample:]
+            self.cnn_train_set_x = self.cnn_train_set[train_cnn_index[:,:-1]][-total_train_sample:]
         else:
             self.cnn_train_set_y = None
             self.cnn_train_set_x = None
@@ -133,13 +134,13 @@ class DataLoader:
         test_cnn_index = test_cnn_full_window + test_cnn_add
         if self.root_var is not None:
             self.cnn_test_set_y = self.cnn_test_set[-total_test_sample:]
-            self.cnn_test_set_x = self.cnn_test_set[test_cnn_index[:-1]][-total_test_sample:]
+            self.cnn_test_set_x = self.cnn_test_set[test_cnn_index[:,:-1]][-total_test_sample:]
         else:
             self.cnn_test_set_x = None
             self.cnn_test_set_y = None
 
         # label
-        self.label_set = self.labels[cnn_window_size:]
+        self.label_set = self.labels[-total_test_sample:]
         # print(self.labels.shape)
 
         if self.root_var is not None:

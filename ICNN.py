@@ -11,6 +11,7 @@ class ICNN:
         self.recon = None
         self.dataloader=dataloader
         self.train_set_size = dataloader.load_train_set_size()
+        print('train set size:',self.train_set_size)
         try:
             cnn_train_set_x, cnn_train_set_y = dataloader.load_cnn_train_set()
             cnn_test_set_x, cnn_test_set_y = dataloader.load_cnn_test_set()
