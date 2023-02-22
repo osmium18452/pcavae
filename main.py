@@ -11,6 +11,7 @@ from DataLoader import DataLoader
 from VAE import VAE
 from IVAE import IVAE
 from ICNN import ICNN
+from ICVAE import ICVAE
 
 import numpy as np
 
@@ -79,12 +80,14 @@ def cal_metrics(gt, predicted, total):
 if __name__ == '__main__':
     mp.set_start_method('spawn')
     parser = argparse.ArgumentParser()
-    parser.add_argument('-G', "--gpu", action="store_true")
     parser.add_argument('-B', '--batch_norm', action='store_true')
+    parser.add_argument('-D', '--draw', action='store_true')
+    parser.add_argument('-G', "--gpu", action="store_true")
     parser.add_argument('-N', '--normalize_data', action='store_true')
     parser.add_argument('-P', '--parallel', action='store_true')
     parser.add_argument('-a', '--anomaly_ratio', default=0.05, type=float)
     parser.add_argument("-b", "--batch_size", default=1024, type=int)
+    parser.add_argument("-c", "--cnn_window_size", default=20, type=int)
     parser.add_argument("-e", "--epoch", default=100, type=int)
     parser.add_argument('-f', '--figfile', default=None)
     parser.add_argument("-g", "--gpu_device", default="0", type=str)
@@ -92,27 +95,31 @@ if __name__ == '__main__':
     parser.add_argument("-r", "--learning_rate", default=0.01, type=float)
     parser.add_argument('-p', '--process', default=None, type=int)
     parser.add_argument('-s', '--save_dir', default='save', type=str)
-    parser.add_argument("-w", "--window_size", default=20, type=int)
+    parser.add_argument('-v', '--vae_window_size', default=1,type=int)
     parser.add_argument('--which_set', default='1-1', type=str)
-    parser.add_argument('--ICVAE', action='store_true')
+    parser.add_argument('--which_model', default='vae',type=str)
     args = parser.parse_args()
 
     latent_size = args.latent
+    draw = args.draw
     anomaly_ratio = args.anomaly_ratio
     batch_norm = args.batch_norm
     gpu = args.gpu
     learning_rate = args.learning_rate
     epoch = args.epoch
     batch_size = args.batch_size
-    window_size = args.window_size
+    cnn_window_size = args.cnn_window_size
     gpu_device = args.gpu_device
     normalize = args.normalize_data
     process = args.process
     parallel = args.parallel
     figfile = args.figfile
-    ICVAE = args.ICVAE
+    which_model = args.which_model
     save_dir = args.save_dir
     which_set = args.which_set
+    vae_window_size = args.vae_window_size
+
+    print('\033[0;34m program begin \033[0m')
 
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
@@ -127,31 +134,47 @@ if __name__ == '__main__':
     map_file = os.path.join(map_dir, map)
 
     dataloader = DataLoader(train_set_file, test_set_file, label_file, normalize=normalize)
-    dataloader.prepare_data(map_file, cnn_window_size=window_size, vae_window_size=1)
+    dataloader.prepare_data(map_file, cnn_window_size=cnn_window_size, vae_window_size=vae_window_size)
     # dataloader.draw_train_set()
 
-    ivae = IVAE(dataloader, latent_size, gpu, learning_rate, gpu_device, batch_norm)
-    icnn = ICNN(dataloader, window_size, gpu, learning_rate, gpu_device)
-    icnn.train(epoch, batch_size, gpu)
-    cnn_recon = icnn.infer(batch_size, gpu)
-    cnn_train_recon = icnn.infer_train_set(batch_size, gpu).transpose()
-    if parallel:
-        ivae.train_vaes_in_parallel(epoch, batch_size, gpu, proc=process)
-        ivae_recon = None
-        ivae_train_recon = None
+    if which_model=='cvae':
+        print('\033[0;35m using cvae \033[0m')
+        icvae=ICVAE(dataloader,latent_size,gpu,learning_rate,gpu_device)
+        icvae.train_vaes_in_serial(epoch, batch_size, gpu)
+        ivae_recon = icvae.infer_in_serial_train_set(batch_size,gpu)
+        ivae_train_recon = icvae.infer_in_serial_train_set(batch_size,gpu).transpose()
     else:
-        # ivae.train_cnns_in_serial(epoch,batch_size,gpu)
+        print('\033[0;35m using vae \033[0m')
+        ivae = IVAE(dataloader, latent_size, gpu, learning_rate, gpu_device, batch_norm)
         ivae.train_vaes_in_serial(epoch, batch_size, gpu, figfile=figfile)
         ivae_recon = ivae.infer_in_serial(batch_size, gpu)
         ivae_train_recon = ivae.infer_in_serial_train_set(batch_size, gpu).transpose()
+    icnn = ICNN(dataloader, cnn_window_size, gpu, learning_rate, gpu_device)
+
+    try:
+        icnn.train(epoch, batch_size, gpu)
+        cnn_recon = icnn.infer(batch_size, gpu)
+        cnn_train_recon = icnn.infer_train_set(batch_size, gpu).transpose()
+    except:
+        cnn_recon = None
+        cnn_train_recon = None
 
     cnn_ground_truth = dataloader.load_cnn_test_set_ground_truth()
-    vae_ground_truth = dataloader.load_vae_test_set_ground_truth()
+    if which_model=='vae':
+        vae_ground_truth = dataloader.load_vae_test_set_ground_truth()
+    else:
+        vae_ground_truth=dataloader.load_cvae_test_ground_truth()
     labels = np.squeeze(dataloader.load_label_set())
     print(labels.shape)
 
-    recon = np.concatenate((cnn_recon.transpose(), ivae_recon.transpose()), axis=0)
-    ground_truth = np.concatenate((cnn_ground_truth.transpose(), vae_ground_truth.transpose()), axis=0)
+    try:
+        print(ivae_recon.shape,cnn_recon.shape)
+        recon = np.concatenate((cnn_recon.transpose(), ivae_recon.transpose()), axis=0)
+        ground_truth = np.concatenate((cnn_ground_truth.transpose(), vae_ground_truth.transpose()), axis=0)
+    except:
+        print('exception occurred')
+        recon = ivae_recon.transpose()
+        ground_truth = vae_ground_truth.transpose()
 
     if normalize:
         test_std, test_mean = dataloader.load_test_set_norm_params()
@@ -178,66 +201,70 @@ if __name__ == '__main__':
     print('recall: %.3f, precision: %.3f, f1: %.3f' % (recall, precision, f1))
 
     print('recall: %.3f, precision: %.3f, f1: %.3f' % (recall, precision, f1), args,
-          file=open(os.path.join(save_dir, 'summary.txt'),'w'), sep='\n')
+          file=open(os.path.join(save_dir, 'summary.txt'), 'w'), sep='\n')
 
     # draw
-    draw_gt_and_recon(ground_truth[0], recon[0], labels, predicted_anomaly_positions, obvious_abnormal_position,
-                      os.path.join(save_dir, 'recon_gta.png'))
-    pool = mp.Pool()
-    for i in range(ground_truth.shape[0]):
-        pool.apply_async(draw_gt_and_recon, args=(ground_truth[i], recon[i], labels, predicted_anomaly_positions,
-                                                  obvious_abnormal_position,
-                                                  os.path.join(save_dir, 'recon_gt' + str(i) + '.png')))
-    pool.close()
-    pool.join()
-    print('test recon done')
+    if draw:
+        draw_gt_and_recon(ground_truth[0], recon[0], labels, predicted_anomaly_positions, obvious_abnormal_position,
+                          os.path.join(save_dir, 'recon_gta.png'))
+        pool = mp.Pool()
+        for i in range(ground_truth.shape[0]):
+            pool.apply_async(draw_gt_and_recon, args=(ground_truth[i], recon[i], labels, predicted_anomaly_positions,
+                                                      obvious_abnormal_position,
+                                                      os.path.join(save_dir, 'recon_gt' + str(i) + '.png')))
+        pool.close()
+        pool.join()
+        print('test recon done')
 
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
-    fig.set_figwidth(10)
-    fig.set_figheight(10)
-    abnormal_point = np.zeros(ground_truth.shape[1])
-    abnormal_point[np.where(labels == 1)] = 1.
-    abnormal_point = abnormal_point.reshape(1, -1).repeat(200, axis=0)
-    ax1.imshow(np.repeat(ground_truth, 200, axis=0), label='train')
-    ax2.imshow(np.repeat(recon, 200, axis=0), label='test')
-    ax3.imshow(abnormal_point)
-    ax1.set_title('test ground truth')
-    ax2.set_title('test recon')
-    ax3.set_title('abnormal points')
-    ax1.set_yticks([])
-    ax2.set_yticks([])
-    ax3.set_yticks([])
-    fig.tight_layout()
-    fig.set_dpi(300)
-    fig.savefig(os.path.join(save_dir, 'test.and.recon.fig.png'), dpi=300)
-    plt.close(fig)
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+        fig.set_figwidth(10)
+        fig.set_figheight(10)
+        abnormal_point = np.zeros(ground_truth.shape[1])
+        abnormal_point[np.where(labels == 1)] = 1.
+        abnormal_point = abnormal_point.reshape(1, -1).repeat(200, axis=0)
+        ax1.imshow(np.repeat(ground_truth, 200, axis=0), label='train')
+        ax2.imshow(np.repeat(recon, 200, axis=0), label='test')
+        ax3.imshow(abnormal_point)
+        ax1.set_title('test ground truth')
+        ax2.set_title('test recon')
+        ax3.set_title('abnormal points')
+        ax1.set_yticks([])
+        ax2.set_yticks([])
+        ax3.set_yticks([])
+        fig.tight_layout()
+        fig.set_dpi(300)
+        fig.savefig(os.path.join(save_dir, 'test.and.recon.fig.png'), dpi=300)
+        plt.close(fig)
 
-    pool = mp.Pool()
-    train_set_recon = np.concatenate((cnn_train_recon, ivae_train_recon), axis=0)
-    train_set_ground_truth = dataloader.load_train_set_ground_truth()
-    if normalize:
-        train_std, train_mean = dataloader.load_train_set_norm_params()
-        # train_std = train_std[dataloader.root_var.shape[0]:]
-        # train_mean = train_mean[dataloader.root_var.shape[0]:]
-        train_set_ground_truth = train_set_ground_truth * train_std + train_mean
-        train_set_recon = train_set_recon * train_std + train_mean
+        pool = mp.Pool()
+        if cnn_train_recon is not None:
+            train_set_recon = np.concatenate((cnn_train_recon, ivae_train_recon), axis=0)
+        else:
+            train_set_recon = ivae_train_recon
+        train_set_ground_truth = dataloader.load_train_set_ground_truth()
+        if normalize:
+            train_std, train_mean = dataloader.load_train_set_norm_params()
+            # train_std = train_std[dataloader.root_var.shape[0]:]
+            # train_mean = train_mean[dataloader.root_var.shape[0]:]
+            train_set_ground_truth = train_set_ground_truth * train_std + train_mean
+            train_set_recon = train_set_recon * train_std + train_mean
 
-    print('\033[0;33mtrain set ground truth shape \033[0m', train_set_ground_truth.shape[0])
-    for i in range(train_set_ground_truth.shape[0]):
-        pool.apply_async(draw_gt_and_recon, args=(train_set_ground_truth[i], train_set_recon[i], None, None, None,
-                                                  os.path.join(save_dir, 'train_recon_gt' + str(i) + '.png')))
-    pool.close()
-    pool.join()
-    print('train recon done')
+        print('\033[0;33mtrain set ground truth shape \033[0m', train_set_ground_truth.shape[0])
+        for i in range(train_set_ground_truth.shape[0]):
+            pool.apply_async(draw_gt_and_recon, args=(train_set_ground_truth[i], train_set_recon[i], None, None, None,
+                                                      os.path.join(save_dir, 'train_recon_gt' + str(i) + '.png')))
+        pool.close()
+        pool.join()
+        print('train recon done')
 
-    fig, (ax1, ax2) = plt.subplots(2, 1)
-    ax1.imshow(np.repeat(train_set_ground_truth, 200, axis=0), label='train')
-    ax2.imshow(np.repeat(train_set_recon, 200, axis=0), label='test')
-    ax1.set_title('train ground truth')
-    ax2.set_title('train recon')
-    ax1.set_yticks([])
-    ax2.set_yticks([])
-    fig.tight_layout()
-    fig.set_dpi(300)
-    fig.savefig(os.path.join(save_dir, 'train.and.recon.fig.png'), dpi=300)
-    plt.close(fig)
+        fig, (ax1, ax2) = plt.subplots(2, 1)
+        ax1.imshow(np.repeat(train_set_ground_truth, 200, axis=0), label='train')
+        ax2.imshow(np.repeat(train_set_recon, 200, axis=0), label='test')
+        ax1.set_title('train ground truth')
+        ax2.set_title('train recon')
+        ax1.set_yticks([])
+        ax2.set_yticks([])
+        fig.tight_layout()
+        fig.set_dpi(300)
+        fig.savefig(os.path.join(save_dir, 'train.and.recon.fig.png'), dpi=300)
+        plt.close(fig)

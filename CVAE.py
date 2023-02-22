@@ -1,17 +1,21 @@
 import torch
 from torch import nn, optim
 import torch.nn.functional as F
+import numpy as np
+
 
 class CVAE(nn.Module):
     """Implementation of CVAE(Conditional Variational Auto-Encoder)"""
     '''input: [batch_size,var] condition:[batch_size,condition_length,var]'''
 
-    def __init__(self, input_size, latent_size, condition_length):
+    def __init__(self, input_size, latent_size, condition_length, identity=0):
         super(CVAE, self).__init__()
 
         # neuron_list = [30, 20, 10]
+        self.identity = identity
         encoder_size = [70, 35, 15]
-        decoder_size = [15, 35, 70] * condition_length
+        decoder_size = np.array([15, 35, 70]) * condition_length
+        # print('decoder size', decoder_size)
 
         self.encoder = nn.Sequential(
             nn.Linear(input_size, encoder_size[0]),
@@ -72,5 +76,4 @@ class CVAE(nn.Module):
         kl_loss = -0.5 * (1 + 2 * log_std - mu.pow(2) - torch.exp(2 * log_std))
         kl_loss = torch.sum(kl_loss)
         loss = recon_loss + kl_weight * kl_loss
-        loss_mse = F.mse_loss(recon, x)
-        return loss, loss_mse, kl_loss
+        return loss

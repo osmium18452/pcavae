@@ -88,14 +88,6 @@ class IVAE:
                 loss = self.vae_list[vae_no].loss_function(recon, batch_x, mu, log_std)
                 loss.backward()
                 self.vae_optimizer_list[vae_no].step()
-            # training_set_=np.array(training_set_)
-            '''fig,ax=plt.subplots()
-            fig.set_figwidth(10)
-            fig.set_figheight(5)
-            x=np.arange(training_set_.shape[0])
-            ax.plot(x,training_set_,linewidth=1)
-            fig.savefig(save_file_name,dpi=600)
-            plt.close(fig)'''
         else:
             for i in range(num_iter):
                 batch_x = self.vae_train_set[vae_no][i * batch_size:(i + 1) * batch_size]
