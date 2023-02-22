@@ -56,7 +56,8 @@ class DataLoader:
 
     def prepare_data(self, graph_file, vae_window_size=1, cnn_window_size=1):
         total_train_sample=self.train_data.shape[1]-max(vae_window_size,cnn_window_size)+1
-        print('\033[0;35m',total_train_sample,self.train_data.shape,'\033[0m')
+        total_test_sample=self.test_data.shape[1]-max(vae_window_size,cnn_window_size)+1
+        # print('\033[0;35m',total_train_sample,self.train_data.shape,'\033[0m')
         f = open(graph_file, 'rb')
         graph = pickle.load(f)
         f.close()
@@ -99,7 +100,7 @@ class DataLoader:
                                                                                                                   vae_window_size)
         train_vae_index = train_vae_full_window + train_vae_add
         for i in range(len(self.vae_train_set)):
-            self.vae_train_set[i] = self.vae_train_set[i][train_vae_index][cnn_window_size - vae_window_size + 1:]
+            self.vae_train_set[i] = self.vae_train_set[i][train_vae_index][-total_train_sample:]
 
         train_cnn_window = np.arange(cnn_window_size)
         train_cnn_full_window = np.tile(train_cnn_window, self.train_data_size - cnn_window_size + 1).reshape(-1,
@@ -108,8 +109,8 @@ class DataLoader:
                                                                                                                   cnn_window_size)
         train_cnn_index = train_cnn_full_window + train_cnn_add
         if self.root_var is not None:
-            self.cnn_train_set_y = self.cnn_train_set[cnn_window_size:]
-            self.cnn_train_set_x = self.cnn_train_set[train_cnn_index[:-1]]
+            self.cnn_train_set_y = self.cnn_train_set[-total_train_sample:]
+            self.cnn_train_set_x = self.cnn_train_set[train_cnn_index[:-1]][-total_train_sample:]
         else:
             self.cnn_train_set_y = None
             self.cnn_train_set_x = None
@@ -122,7 +123,7 @@ class DataLoader:
                                                                                                                 vae_window_size)
         test_vae_index = test_vae_full_window + test_vae_add
         for i in range(len(self.vae_test_set)):
-            self.vae_test_set[i] = self.vae_test_set[i][test_vae_index][cnn_window_size - vae_window_size + 1:]
+            self.vae_test_set[i] = self.vae_test_set[i][test_vae_index][-total_test_sample:]
 
         test_cnn_window = np.arange(cnn_window_size)
         test_cnn_full_window = np.tile(test_cnn_window, self.test_data_size - cnn_window_size + 1).reshape(-1,
@@ -131,8 +132,8 @@ class DataLoader:
                                                                                                                 cnn_window_size)
         test_cnn_index = test_cnn_full_window + test_cnn_add
         if self.root_var is not None:
-            self.cnn_test_set_y = self.cnn_test_set[cnn_window_size:]
-            self.cnn_test_set_x = self.cnn_test_set[test_cnn_index[:-1]]
+            self.cnn_test_set_y = self.cnn_test_set[-total_test_sample:]
+            self.cnn_test_set_x = self.cnn_test_set[test_cnn_index[:-1]][-total_test_sample:]
         else:
             self.cnn_test_set_x = None
             self.cnn_test_set_y = None
