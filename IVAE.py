@@ -14,7 +14,7 @@ from Draw import DrawTrainMSELoss
 
 
 class IVAE:
-    def __init__(self, dataloader, latent_size, gpu, learning_rate, gpu_device):
+    def __init__(self, dataloader, latent_size, gpu, learning_rate, gpu_device, batch_norm=False):
         torch.multiprocessing.set_sharing_strategy('file_system')
         self.dataloader = dataloader
 
@@ -43,10 +43,10 @@ class IVAE:
         self.vae_num = dataloader.load_vae_num()
         self.vae_device_list = self.get_device_list(gpu_device, vae_num=self.vae_num)
         print('device list', self.vae_device_list, gpu_device)
-        pbar=tqdm(total=len(self.vae_dim_list),ascii=True)
+        pbar = tqdm(total=len(self.vae_dim_list), ascii=True)
         pbar.set_description('initiating vaes...')
         for i, size in enumerate(self.vae_dim_list):
-            self.vae_list.append(VAE(size, latent_size, i))
+            self.vae_list.append(VAE(size, latent_size, i, batch_norm))
             if gpu:
                 self.vae_list[i].cuda(device=self.vae_device_list[i])
             self.vae_optimizer_list.append(optim.Adam(self.vae_list[i].parameters(), lr=learning_rate))

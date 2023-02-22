@@ -6,40 +6,71 @@ import torch.nn.functional as F
 class VAE(nn.Module):
     """Implementation of CVAE(Conditional Variational Auto-Encoder)"""
 
-    def __init__(self, input_size, latent_size, identity=0):
+    def __init__(self, input_size, latent_size, identity=0,batch_norm=False):
         super(VAE, self).__init__()
 
         neuron_list = [10, 20, 10]
         self.identity=identity
-
-        self.encoder = nn.Sequential(
-            nn.Linear(input_size, neuron_list[0]),
-            # nn.ReLU(),
-            nn.Tanh(),
-            nn.Linear(neuron_list[0], neuron_list[1]),
-            # nn.ReLU(),
-            nn.Tanh(),
-            nn.Linear(neuron_list[1], neuron_list[2]),
-            nn.Tanh(),
-            # nn.ReLU(),
+        if batch_norm:
+            self.encoder = nn.Sequential(
+                nn.Linear(input_size, neuron_list[0]),
+                nn.BatchNorm1d(neuron_list[0]),
+                nn.Tanh(),
+                # nn.ReLU(),
+                nn.Linear(neuron_list[0], neuron_list[1]),
+                nn.BatchNorm1d(neuron_list[1]),
+                nn.Tanh(),
+                # nn.ReLU(),
+                nn.Linear(neuron_list[1], neuron_list[2]),
+                nn.BatchNorm1d(neuron_list[2]),
+                nn.Tanh(),
+                # nn.ReLU(),
+            )
+            self.decoder = nn.Sequential(
+                nn.Linear(latent_size, neuron_list[2]),
+                nn.BatchNorm1d(neuron_list[2]),
+                # nn.ReLU(),
+                nn.Tanh(),
+                nn.Linear(neuron_list[2], neuron_list[1]),
+                nn.BatchNorm1d(neuron_list[1]),
+                # nn.ReLU(),
+                nn.Tanh(),
+                nn.Linear(neuron_list[1], neuron_list[0]),
+                nn.BatchNorm1d(neuron_list[0]),
+                # nn.ReLU(),
+                nn.Tanh(),
+                nn.Linear(neuron_list[0], input_size),
+        )
+        else:
+            self.encoder = nn.Sequential(
+                nn.Linear(input_size, neuron_list[0]),
+                # nn.ReLU(),
+                nn.Tanh(),
+                nn.Linear(neuron_list[0], neuron_list[1]),
+                # nn.ReLU(),
+                nn.Tanh(),
+                nn.Linear(neuron_list[1], neuron_list[2]),
+                nn.Tanh(),
+                # nn.ReLU(),
+            )
+            self.decoder = nn.Sequential(
+                nn.Linear(latent_size, neuron_list[2]),
+                # nn.ReLU(),
+                nn.Tanh(),
+                nn.Linear(neuron_list[2], neuron_list[1]),
+                # nn.ReLU(),
+                nn.Tanh(),
+                nn.Linear(neuron_list[1], neuron_list[0]),
+                # nn.ReLU(),
+                nn.Tanh(),
+                nn.Linear(neuron_list[0], input_size),
+                # nn.ReLU(),
+                # nn.Tanh(),
         )
         self.encoder_mean = nn.Linear(neuron_list[2], latent_size)
         self.encoder_log_std = nn.Linear(neuron_list[2], latent_size)
 
-        self.decoder = nn.Sequential(
-            nn.Linear(latent_size, neuron_list[2]),
-            # nn.ReLU(),
-            nn.Tanh(),
-            nn.Linear(neuron_list[2], neuron_list[1]),
-            # nn.ReLU(),
-            nn.Tanh(),
-            nn.Linear(neuron_list[1], neuron_list[0]),
-            # nn.ReLU(),
-            nn.Tanh(),
-            nn.Linear(neuron_list[0], input_size),
-            # nn.ReLU(),
-            # nn.Tanh(),
-        )
+
 
     def encode(self, x):
         # print("encoder",x.shape,x.dtype)

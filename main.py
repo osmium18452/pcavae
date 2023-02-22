@@ -80,6 +80,7 @@ if __name__ == '__main__':
     mp.set_start_method('spawn')
     parser = argparse.ArgumentParser()
     parser.add_argument('-G', "--gpu", action="store_true")
+    parser.add_argument('-B', '--batch_norm', action='store_true')
     parser.add_argument('-N', '--normalize_data', action='store_true')
     parser.add_argument('-P', '--parallel', action='store_true')
     parser.add_argument('-a', '--anomaly_ratio', default=0.05, type=float)
@@ -98,6 +99,7 @@ if __name__ == '__main__':
 
     latent_size = args.latent
     anomaly_ratio = args.anomaly_ratio
+    batch_norm = args.batch_norm
     gpu = args.gpu
     learning_rate = args.learning_rate
     epoch = args.epoch
@@ -115,7 +117,6 @@ if __name__ == '__main__':
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
 
-
     data_dir = '/remote-home/liuwenbo/pycproj/tsdata/data'
     dataset = 'smd'
     map_dir = '/remote-home/liuwenbo/pycproj/tsdata/maps/npmap'
@@ -129,11 +130,11 @@ if __name__ == '__main__':
     dataloader.prepare_data(map_file, cnn_window_size=window_size, vae_window_size=1)
     # dataloader.draw_train_set()
 
-    ivae = IVAE(dataloader, latent_size, gpu, learning_rate, gpu_device)
+    ivae = IVAE(dataloader, latent_size, gpu, learning_rate, gpu_device, batch_norm)
     icnn = ICNN(dataloader, window_size, gpu, learning_rate, gpu_device)
     icnn.train(epoch, batch_size, gpu)
     cnn_recon = icnn.infer(batch_size, gpu)
-    cnn_train_recon=icnn.infer_train_set(batch_size,gpu).transpose()
+    cnn_train_recon = icnn.infer_train_set(batch_size, gpu).transpose()
     if parallel:
         ivae.train_vaes_in_parallel(epoch, batch_size, gpu, proc=process)
         ivae_recon = None
@@ -176,6 +177,9 @@ if __name__ == '__main__':
                                         dataloader.load_test_set_size())
     print('recall: %.3f, precision: %.3f, f1: %.3f' % (recall, precision, f1))
 
+    print('recall: %.3f, precision: %.3f, f1: %.3f' % (recall, precision, f1), args,
+          file=open(os.path.join(save_dir, 'summary.txt'),'w'), sep='\n')
+
     # draw
     draw_gt_and_recon(ground_truth[0], recon[0], labels, predicted_anomaly_positions, obvious_abnormal_position,
                       os.path.join(save_dir, 'recon_gta.png'))
@@ -189,22 +193,27 @@ if __name__ == '__main__':
     print('test recon done')
 
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+    fig.set_figwidth(10)
+    fig.set_figheight(10)
     abnormal_point = np.zeros(ground_truth.shape[1])
     abnormal_point[np.where(labels == 1)] = 1.
     abnormal_point = abnormal_point.reshape(1, -1).repeat(200, axis=0)
     ax1.imshow(np.repeat(ground_truth, 200, axis=0), label='train')
     ax2.imshow(np.repeat(recon, 200, axis=0), label='test')
-    ax3.imshow(abnormal_point,cmap='hot')
+    ax3.imshow(abnormal_point)
     ax1.set_title('test ground truth')
     ax2.set_title('test recon')
     ax3.set_title('abnormal points')
+    ax1.set_yticks([])
+    ax2.set_yticks([])
+    ax3.set_yticks([])
     fig.tight_layout()
     fig.set_dpi(300)
     fig.savefig(os.path.join(save_dir, 'test.and.recon.fig.png'), dpi=300)
     plt.close(fig)
 
     pool = mp.Pool()
-    train_set_recon=np.concatenate((cnn_train_recon,ivae_train_recon),axis=0)
+    train_set_recon = np.concatenate((cnn_train_recon, ivae_train_recon), axis=0)
     train_set_ground_truth = dataloader.load_train_set_ground_truth()
     if normalize:
         train_std, train_mean = dataloader.load_train_set_norm_params()
@@ -223,9 +232,11 @@ if __name__ == '__main__':
 
     fig, (ax1, ax2) = plt.subplots(2, 1)
     ax1.imshow(np.repeat(train_set_ground_truth, 200, axis=0), label='train')
-    ax2.imshow(np.repeat(ivae_train_recon, 200, axis=0), label='test')
+    ax2.imshow(np.repeat(train_set_recon, 200, axis=0), label='test')
     ax1.set_title('train ground truth')
     ax2.set_title('train recon')
+    ax1.set_yticks([])
+    ax2.set_yticks([])
     fig.tight_layout()
     fig.set_dpi(300)
     fig.savefig(os.path.join(save_dir, 'train.and.recon.fig.png'), dpi=300)
