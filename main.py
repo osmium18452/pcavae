@@ -10,6 +10,7 @@ import torch
 from torch import optim
 
 from DataLoader import DataLoader
+from ILSTMCVAE import ILSTMCVAE
 from VAE import VAE
 from IVAE import IVAE
 from ICNN import ICNN
@@ -19,12 +20,12 @@ import numpy as np
 
 
 def draw_gt_and_recon(gt, recon, labels=None, predicted_anomaly_positions=None, obvious_anomaly_positions=None,
-                      save_file=None):
+                      save_file=None, dpi=300):
     # print(gt.shape,recon.shape)
     fig, ax = plt.subplots()
     fig.set_figwidth(10)
     fig.set_figheight(5)
-    fig.set_dpi(300)
+    fig.set_dpi(dpi)
     x = np.arange(gt.shape[0])
     ax.plot(x, gt, label='ground truth', zorder=0, linewidth=1)
     ax.plot(x, recon, alpha=0.7, label='reconstruction', zorder=1, linewidth=1)
@@ -57,7 +58,7 @@ def draw_gt_and_recon(gt, recon, labels=None, predicted_anomaly_positions=None, 
     if save_file is None:
         fig.show()
     else:
-        fig.savefig(save_file, dpi=600)
+        fig.savefig(save_file, dpi=dpi)
     plt.close(fig)
 
 
@@ -86,21 +87,24 @@ if __name__ == '__main__':
     parser.add_argument('-D', '--draw', action='store_true')
     parser.add_argument('-G', "--gpu", action="store_true")
     parser.add_argument('-N', '--normalize_data', action='store_true')
+    parser.add_argument('-M', '--draw_mse', action='store_true')
     parser.add_argument('-P', '--parallel', action='store_true')
     parser.add_argument('-a', '--anomaly_ratio', default=0.05, type=float)
     parser.add_argument("-b", "--batch_size", default=1024, type=int)
     parser.add_argument("-c", "--cnn_window_size", default=20, type=int)
+    parser.add_argument('-d', '--dpi', default=300, type=int)
     parser.add_argument("-e", "--epoch", default=100, type=int)
     parser.add_argument('-f', '--figfile', default=None)
     parser.add_argument("-g", "--gpu_device", default="0", type=str)
     parser.add_argument('-l', "--latent", default=5, type=int)
     parser.add_argument("-r", "--learning_rate", default=0.01, type=float)
     parser.add_argument('-p', '--process', default=None, type=int)
-    parser.add_argument('-s', '--save_dir', default='save', type=str)
-    parser.add_argument('-v', '--vae_window_size', default=1,type=int)
+    parser.add_argument('-s', '--save_dir', default='save/tmp', type=str)
+    parser.add_argument('-v', '--vae_window_size', default=1, type=int)
     parser.add_argument('--which_set', default='1-1', type=str)
-    parser.add_argument('--which_model', default='vae',type=str)
+    parser.add_argument('--which_model', default='vae', type=str)
     args = parser.parse_args()
+    print(args)
 
     latent_size = args.latent
     draw = args.draw
@@ -120,13 +124,15 @@ if __name__ == '__main__':
     save_dir = args.save_dir
     which_set = args.which_set
     vae_window_size = args.vae_window_size
+    dpi = args.dpi
+    draw_mse = args.draw_mse and draw
 
     print('\033[0;34m program begin \033[0m')
 
     if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
+        os.makedirs(save_dir)
 
-    if platform.system()=='Windows':
+    if platform.system() == 'Windows':
         data_dir = 'E:\\Pycharm Projects\\causal.dataset\\data'
         map_dir = 'E:\\Pycharm Projects\\causal.dataset\\maps\\npmap'
     else:
@@ -143,62 +149,67 @@ if __name__ == '__main__':
     dataloader.prepare_data(map_file, cnn_window_size=cnn_window_size, vae_window_size=vae_window_size)
     # dataloader.draw_train_set()
 
-    if which_model=='cvae':
+    if which_model == 'cvae':
         print('\033[0;35m using cvae \033[0m')
-        icvae=ICVAE(dataloader,latent_size,gpu,learning_rate,gpu_device)
+        icvae = ICVAE(dataloader, latent_size, gpu, learning_rate, gpu_device)
         icvae.train_vaes_in_serial(epoch, batch_size, gpu)
-        ivae_recon = icvae.infer_in_serial_train_set(batch_size,gpu)
-        ivae_train_recon = icvae.infer_in_serial_train_set(batch_size,gpu).transpose()
+        ivae_recon = icvae.infer_in_serial(batch_size, gpu)
+        ivae_train_recon = icvae.infer_in_serial_train_set(batch_size, gpu).transpose()
+    elif which_model == 'lstmcvae':
+        print('\033[0;35m using lstmcvae \033[0m')
+        ilstmcvae = ILSTMCVAE(dataloader, latent_size, gpu, learning_rate, gpu_device)
+        ilstmcvae.train_vaes_in_serial(epoch, batch_size, gpu)
+        ivae_recon = ilstmcvae.infer_in_serial(batch_size, gpu)
+        ivae_train_recon = ilstmcvae.infer_in_serial_train_set(batch_size, gpu).transpose()
     else:
         print('\033[0;35m using vae \033[0m')
         ivae = IVAE(dataloader, latent_size, gpu, learning_rate, gpu_device, batch_norm)
         ivae.train_vaes_in_serial(epoch, batch_size, gpu, figfile=figfile)
         ivae_recon = ivae.infer_in_serial(batch_size, gpu)
         ivae_train_recon = ivae.infer_in_serial_train_set(batch_size, gpu).transpose()
-    icnn = ICNN(dataloader, cnn_window_size, gpu, learning_rate, gpu_device)
 
-    icnn.train(epoch, batch_size, gpu)
-    cnn_recon = icnn.infer(batch_size, gpu)
-    cnn_train_recon = icnn.infer_train_set(batch_size, gpu).transpose()
+    icnn = ICNN(dataloader, cnn_window_size, gpu, learning_rate, gpu_device)
     try:
-        pass
+        icnn.train(epoch, batch_size, gpu)
+        cnn_recon = icnn.infer(batch_size, gpu)
+        cnn_train_recon = icnn.infer_train_set(batch_size, gpu).transpose()
     except Exception as e:
-        print('\033[0;35m',e,'\033[0m')
+        print('\033[0;35m', e, '\033[0m')
         cnn_recon = None
         cnn_train_recon = None
 
     cnn_ground_truth = dataloader.load_cnn_test_set_ground_truth()
-    if which_model=='vae':
+    if which_model == 'vae':
         vae_ground_truth = dataloader.load_vae_test_set_ground_truth()
     else:
-        vae_ground_truth=dataloader.load_cvae_test_ground_truth()
+        vae_ground_truth = dataloader.load_cvae_test_ground_truth()
     labels = np.squeeze(dataloader.load_label_set())
     print(labels.shape)
 
     try:
         print('-------------------------')
-        print('\033[0;35m',type(ivae_recon),type(cnn_recon),'\033[0m')
+        print('\033[0;35m', type(ivae_recon), type(cnn_recon), '\033[0m')
         recon = np.concatenate((cnn_recon.transpose(), ivae_recon.transpose()), axis=0)
         ground_truth = np.concatenate((cnn_ground_truth.transpose(), vae_ground_truth.transpose()), axis=0)
-    except:
-        print('exception occurred')
+    except Exception as E:
+        print('\033[0;36mexception occurred', E, '\033[0m')
         recon = ivae_recon.transpose()
         ground_truth = vae_ground_truth.transpose()
 
+    mse_list = np.mean((recon - ground_truth) ** 2, axis=0)
     if normalize:
         test_std, test_mean = dataloader.load_test_set_norm_params()
-        print(recon.shape,test_std.shape,test_mean.shape)
+        print(recon.shape, test_std.shape, test_mean.shape)
         recon = recon * test_std + test_mean
         ground_truth = ground_truth * test_std + test_mean
 
-    mse_list = np.mean((recon - ground_truth) ** 2, axis=0)
-    obvious_abnormal_position = dataloader.load_obvious_anomaly_positions()
+    obvious_abnormal_position = dataloader.load_obvious_abnormal_positions()
     obvious_abnormal_num = obvious_abnormal_position.shape
     anomaly_num = int(dataloader.load_test_set_size() * anomaly_ratio)
     suspicious_anomalies = np.setdiff1d((np.argsort(mse_list)[::-1])[:anomaly_num], obvious_abnormal_position,
                                         assume_unique=True)
-    print('\033[0;33msuspicous anomalies\033[0m', suspicious_anomalies)
-    print('\033[0;33mmse list sorted\033[0m', mse_list[suspicious_anomalies])
+    print('\033[0;33msuspicous anomalies\033[0m', suspicious_anomalies.shape)
+    print('\033[0;33mmse list sorted\033[0m', mse_list[suspicious_anomalies].shape)
     predicted_anomaly_positions = np.sort(
         np.concatenate((obvious_abnormal_position, suspicious_anomalies))[:anomaly_num])
     print('anomaly position dtype', predicted_anomaly_positions.dtype, suspicious_anomalies.dtype,
@@ -208,7 +219,8 @@ if __name__ == '__main__':
     # calculate scores
     recall, precision, f1 = cal_metrics(np.where(labels == 1)[0], predicted_anomaly_positions.astype(int),
                                         dataloader.load_test_set_size())
-    print('recall: %.3f, precision: %.3f, f1: %.3f' % (recall, precision, f1))
+    mse = np.mean((recon - ground_truth) ** 2)
+    print('\033[0;37m', 'recall: %.3f, precision: %.3f, f1: %.3f,mse: %.5f' % (recall, precision, f1, mse), '\033[0m')
 
     print('recall: %.3f, precision: %.3f, f1: %.3f' % (recall, precision, f1), args,
           file=open(os.path.join(save_dir, 'summary.txt'), 'w'), sep='\n')
@@ -216,12 +228,12 @@ if __name__ == '__main__':
     # draw
     if draw:
         draw_gt_and_recon(ground_truth[0], recon[0], labels, predicted_anomaly_positions, obvious_abnormal_position,
-                          os.path.join(save_dir, 'recon_gta.png'))
+                          os.path.join(save_dir, 'recon_gta.png'), dpi)
         pool = mp.Pool()
         for i in range(ground_truth.shape[0]):
             pool.apply_async(draw_gt_and_recon, args=(ground_truth[i], recon[i], labels, predicted_anomaly_positions,
                                                       obvious_abnormal_position,
-                                                      os.path.join(save_dir, 'recon_gt' + str(i) + '.png')))
+                                                      os.path.join(save_dir, 'recon_gt' + str(i) + '.png'), dpi))
         pool.close()
         pool.join()
         print('test recon done')
@@ -240,8 +252,8 @@ if __name__ == '__main__':
         ax2.set_yticks([])
         # ax3.set_yticks([])
         fig.tight_layout()
-        fig.set_dpi(300)
-        fig.savefig(os.path.join(save_dir, 'test.and.recon.fig.png'), dpi=300)
+        fig.set_dpi(dpi)
+        fig.savefig(os.path.join(save_dir, 'test.and.recon.fig.png'), dpi=dpi)
         plt.close(fig)
 
         pool = mp.Pool()
@@ -260,7 +272,7 @@ if __name__ == '__main__':
         print('\033[0;33mtrain set ground truth shape \033[0m', train_set_ground_truth.shape[0])
         for i in range(train_set_ground_truth.shape[0]):
             pool.apply_async(draw_gt_and_recon, args=(train_set_ground_truth[i], train_set_recon[i], None, None, None,
-                                                      os.path.join(save_dir, 'train_recon_gt' + str(i) + '.png')))
+                                                      os.path.join(save_dir, 'train_recon_gt' + str(i) + '.png'), dpi))
         pool.close()
         pool.join()
         print('train recon done')
@@ -273,6 +285,18 @@ if __name__ == '__main__':
         ax1.set_yticks([])
         ax2.set_yticks([])
         fig.tight_layout()
-        fig.set_dpi(300)
-        fig.savefig(os.path.join(save_dir, 'train.and.recon.fig.png'), dpi=300)
+        fig.set_dpi(dpi)
+        fig.savefig(os.path.join(save_dir, 'train.and.recon.fig.png'), dpi=dpi)
+        plt.close(fig)
+
+        fig, (ax1, ax2) = plt.subplots(2, 1)
+        ax1.imshow(np.repeat((train_set_ground_truth - train_set_recon) ** 2, 200, axis=0), label='train')
+        ax2.imshow(np.repeat((ground_truth - recon) ** 2, 200, axis=0), label='test')
+        ax1.set_title('train mse')
+        ax2.set_title('test mse')
+        ax1.set_yticks([])
+        ax2.set_yticks([])
+        fig.tight_layout()
+        fig.set_dpi(dpi)
+        fig.savefig(os.path.join(save_dir, 'mse.png'), dpi=dpi)
         plt.close(fig)

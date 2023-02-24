@@ -11,12 +11,15 @@ class ICNN:
         self.recon = None
         self.dataloader=dataloader
         self.train_set_size = dataloader.load_train_set_size()
+        self.usable_cnn=False
         print('train set size:',self.train_set_size)
         try:
             cnn_train_set_x, cnn_train_set_y = dataloader.load_cnn_train_set()
             cnn_test_set_x, cnn_test_set_y = dataloader.load_cnn_test_set()
-        except:
+        except Exception as E:
+            print("\033[0;36m",E,"\033[0m")
             return
+        self.usable_cnn=True
         self.cnn_train_set_x = torch.Tensor(cnn_train_set_x)
         self.cnn_train_set_y = torch.Tensor(cnn_train_set_y)
         self.cnn_test_set_x = torch.Tensor(cnn_test_set_x)

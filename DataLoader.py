@@ -260,7 +260,7 @@ class DataLoader:
             # print(self.vae_test_set[i][:,:,0].shape)
         return np.array(gt_list).transpose()
 
-    def load_obvious_anomaly_positions(self):
+    def load_obvious_abnormal_positions(self):
         anomaly_vars = np.setdiff1d(self.test_non_constant_var, self.train_non_constant_var)
         anomaly_position_list = []
         for i in anomaly_vars:
