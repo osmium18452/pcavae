@@ -47,6 +47,7 @@ class DataLoader:
         self.test_data_mean = np.mean(self.nc_train_data, axis=1).reshape(-1, 1)
         # both should use train set std and mean to normalize. because test set std and mean are abnormal
         print('\033[0;33mtrain/test set size\033[0m', self.nc_train_data.shape, self.nc_test_data.shape)
+        self.non_constant_var_num=self.nc_train_data.shape[0]
         if normalize:
             print('normalized')
             self.nc_train_data = (self.nc_train_data - self.train_data_mean) / self.train_data_std

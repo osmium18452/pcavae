@@ -20,7 +20,7 @@ import numpy as np
 
 
 def draw_gt_and_recon(gt, recon, labels=None, predicted_anomaly_positions=None, obvious_anomaly_positions=None,
-                      save_file=None, dpi=300):
+                      save_file=None, dpi=300, title=None):
     # print(gt.shape,recon.shape)
     fig, ax = plt.subplots()
     fig.set_figwidth(10)
@@ -35,10 +35,10 @@ def draw_gt_and_recon(gt, recon, labels=None, predicted_anomaly_positions=None, 
         ax.scatter(x_labels, y_labels, color='red', label='true anomaly', zorder=100, s=.5)
     if predicted_anomaly_positions is not None:
         y = recon[predicted_anomaly_positions]
-        ax.scatter(predicted_anomaly_positions, y, label='pred anomaly', color='darkgreen', zorder=101, s=.5)
+        ax.scatter(predicted_anomaly_positions, y, label='pred anomaly', color='darkgreen', zorder=101, s=.5, alpha=0.7)
     if obvious_anomaly_positions is not None:
         y = recon[obvious_anomaly_positions]
-        ax.scatter(obvious_anomaly_positions, y, color='purple', label='obvious anomaly', zorder=102, s=.5)
+        ax.scatter(obvious_anomaly_positions, y, color='purple', label='obvious anomaly', zorder=102, s=.5, alpha=0.7)
     if predicted_anomaly_positions is not None and labels is not None and False:
         highest = np.max(np.concatenate((gt, recon)))
         lowest = np.min(np.concatenate((gt, recon)))
@@ -54,6 +54,8 @@ def draw_gt_and_recon(gt, recon, labels=None, predicted_anomaly_positions=None, 
         ax.plot(miss_positions, miss_y, label='missed', zorder=3, marker='.', linewidth=.5, markerfacecolor="None",
                 markeredgewidth=.5, markersize=3)
     ax.legend()
+    if title is not None:
+        ax.set_title(title)
 
     if save_file is None:
         fig.show()
@@ -196,7 +198,7 @@ if __name__ == '__main__':
         recon = ivae_recon.transpose()
         ground_truth = vae_ground_truth.transpose()
 
-    mse_list = np.mean((recon - ground_truth) ** 2, axis=0)
+    mse_list = np.max((recon - ground_truth) ** 2, axis=0)
     if normalize:
         test_std, test_mean = dataloader.load_test_set_norm_params()
         print(recon.shape, test_std.shape, test_mean.shape)
@@ -220,20 +222,26 @@ if __name__ == '__main__':
     recall, precision, f1 = cal_metrics(np.where(labels == 1)[0], predicted_anomaly_positions.astype(int),
                                         dataloader.load_test_set_size())
     mse = np.mean((recon - ground_truth) ** 2)
-    print('\033[0;37m', 'recall: %.3f, precision: %.3f, f1: %.3f,mse: %.5f' % (recall, precision, f1, mse), '\033[0m')
+    print('\033[0;31m', 'recall: %.3f, precision: %.3f, f1: %.3f, mse: %.5f' % (recall, precision, f1, mse),
+          '\033[0m')
 
     print('recall: %.3f, precision: %.3f, f1: %.3f' % (recall, precision, f1), args,
           file=open(os.path.join(save_dir, 'summary.txt'), 'w'), sep='\n')
 
     # draw
+    cnn_num = dataloader.non_constant_var_num - dataloader.load_vae_num()
     if draw:
         draw_gt_and_recon(ground_truth[0], recon[0], labels, predicted_anomaly_positions, obvious_abnormal_position,
                           os.path.join(save_dir, 'recon_gta.png'), dpi)
         pool = mp.Pool()
         for i in range(ground_truth.shape[0]):
+            if i < cnn_num:
+                title = 'cnn'
+            else:
+                title = 'lstm'
             pool.apply_async(draw_gt_and_recon, args=(ground_truth[i], recon[i], labels, predicted_anomaly_positions,
                                                       obvious_abnormal_position,
-                                                      os.path.join(save_dir, 'recon_gt' + str(i) + '.png'), dpi))
+                                                      os.path.join(save_dir, 'recon_gt' + str(i) + '.png'), dpi, title))
         pool.close()
         pool.join()
         print('test recon done')
@@ -271,8 +279,13 @@ if __name__ == '__main__':
 
         print('\033[0;33mtrain set ground truth shape \033[0m', train_set_ground_truth.shape[0])
         for i in range(train_set_ground_truth.shape[0]):
+            if i < cnn_num:
+                title = 'cnn'
+            else:
+                title = 'lstm'
             pool.apply_async(draw_gt_and_recon, args=(train_set_ground_truth[i], train_set_recon[i], None, None, None,
-                                                      os.path.join(save_dir, 'train_recon_gt' + str(i) + '.png'), dpi))
+                                                      os.path.join(save_dir, 'train_recon_gt' + str(i) + '.png'), dpi,
+                                                      title))
         pool.close()
         pool.join()
         print('train recon done')

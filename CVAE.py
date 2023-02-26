@@ -13,19 +13,19 @@ class CVAE(nn.Module):
 
         # neuron_list = [30, 20, 10]
         self.identity = identity
-        encoder_size = [70, 35, 15]
-        decoder_size = np.array([15, 35, 70]) * condition_length
+        encoder_size = [10,20,10]
+        decoder_size = np.array([10,20,10]) * condition_length
         # print('decoder size', decoder_size)
 
         self.encoder = nn.Sequential(
             nn.Linear(input_size, encoder_size[0]),
-            nn.BatchNorm1d(encoder_size[0]),
+            # nn.BatchNorm1d(encoder_size[0]),
             nn.Tanh(),
             nn.Linear(encoder_size[0], encoder_size[1]),
-            nn.BatchNorm1d(encoder_size[1]),
+            # nn.BatchNorm1d(encoder_size[1]),
             nn.Tanh(),
             nn.Linear(encoder_size[1], encoder_size[2]),
-            nn.BatchNorm1d(encoder_size[2]),
+            # nn.BatchNorm1d(encoder_size[2]),
             nn.Tanh(),
         )
         self.encoder_mean = nn.Linear(encoder_size[2], latent_size)
@@ -33,13 +33,13 @@ class CVAE(nn.Module):
 
         self.decoder = nn.Sequential(
             nn.Linear(latent_size + input_size * condition_length, decoder_size[0]),
-            nn.BatchNorm1d(decoder_size[0]),
+            # nn.BatchNorm1d(decoder_size[0]),
             nn.Tanh(),
             nn.Linear(decoder_size[0], decoder_size[1]),
-            nn.BatchNorm1d(decoder_size[1]),
+            # nn.BatchNorm1d(decoder_size[1]),
             nn.Tanh(),
             nn.Linear(decoder_size[1], decoder_size[2]),
-            nn.BatchNorm1d(decoder_size[2]),
+            # nn.BatchNorm1d(decoder_size[2]),
             nn.Tanh(),
             nn.Linear(decoder_size[2], input_size),
         )
