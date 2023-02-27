@@ -166,7 +166,10 @@ if __name__ == '__main__':
     else:
         print('\033[0;35m using vae \033[0m')
         ivae = IVAE(dataloader, latent_size, gpu, learning_rate, gpu_device, batch_norm)
-        ivae.train_vaes_in_serial(epoch, batch_size, gpu, figfile=figfile)
+        if parallel:
+            ivae.train_vaes_in_parallel(epoch, batch_size, gpu,proc=process)
+        else:
+            ivae.train_vaes_in_serial(epoch, batch_size, gpu, figfile=figfile)
         ivae_recon = ivae.infer_in_serial(batch_size, gpu)
         ivae_train_recon = ivae.infer_in_serial_train_set(batch_size, gpu).transpose()
 

@@ -8,6 +8,7 @@ import torch
 from torch import optim
 import torch.multiprocessing as mp
 import torch.nn.functional as F
+from multiprocessing.dummy import Pool as ThreadPool
 
 from VAE import VAE
 from Draw import DrawTrainMSELoss
@@ -62,6 +63,7 @@ class IVAE:
 
     def train_single_vae_one_epoch(self, vae_no, batch_size, gpu=False, pbar=False) -> np.ndarray:
         num_iter = self.train_set_size // batch_size
+        # print('\033[0;33mbegin\033[0m')
         if pbar:
             for i in range(num_iter):
                 batch_x = self.vae_train_set[vae_no][i * batch_size:(i + 1) * batch_size]
@@ -89,6 +91,7 @@ class IVAE:
                 loss.backward()
                 self.vae_optimizer_list[vae_no].step()
         else:
+            # print('\033[0;33mbegin\033[0m')
             for i in range(num_iter):
                 batch_x = self.vae_train_set[vae_no][i * batch_size:(i + 1) * batch_size]
                 if gpu:
@@ -135,25 +138,33 @@ class IVAE:
                 for j in range(self.vae_num):
                     self.vae_train_set[j] = self.vae_train_set[j][shuffle]
 
-            pool = mp.Pool(proc)
+            pool =mp.Pool(proc)
             arg_list = []
             # get recon list and train in parallel
             for j in range(self.vae_num):
                 arg_list.append((j, batch_size, gpu, False))
+            # print('process num:', len(pool._cache))
             # print('arglist:', arg_list)
-            recon_list = np.array(pool.map(self.train_single_vae_one_epoch, arg_list))
-            pool.close()
+            # recon_list = np.array(pool.map(self.train_single_vae_one_epoch, arg_list))
+            # pool.close()
 
-            # result_list=[]
-            # recon_list=[]
-            # for j in range(self.vae_num):
-            #     result_list.append(pool.apply_async(self.train_single_vae_one_epoch,(j, batch_size, gpu, False)))
+            result_list=[]
+            recon_list=[]
+            num_iter = self.train_set_size // batch_size
+            with tqdm(total=num_iter * self.vae_num, ascii=True, leave=False) as self.subpbar:
+                for j in range(self.vae_num):
+                    # print('\033[0;32m',j,'\033[0m')
+                    result_list.append(pool.apply_async(self.train_single_vae_one_epoch,(j, batch_size, gpu, True)))
+                pool.close()
+                pool.join()
+            # print('result list:',result_list[0],result_list[1])
             # for j in range(self.vae_num):
             #     recon_list.append(result_list[j].get())
 
             recon_list = np.array(recon_list)
-            print(recon_list.shape)
-            mse = np.mean((recon_list - val_list) ** 2)
+            # print('recon list shape',recon_list.shape)
+            # mse = np.mean((recon_list - val_list) ** 2)
+            mse=0
             self.pbar.set_postfix_str("mse loss: %.5e" % (mse))
             self.pbar.update()
         self.pbar.close()
