@@ -24,8 +24,9 @@ class ICNN:
         self.cnn_train_set_y = torch.Tensor(cnn_train_set_y)
         self.cnn_test_set_x = torch.Tensor(cnn_test_set_x)
         self.cnn_test_set_y = torch.Tensor(cnn_test_set_y)
-        self.cnn_validate_set_x = self.cnn_test_set_x[100:]
-        self.cnn_validate_set_y = self.cnn_test_set_y[100:]
+        self.cnn_validate_set_x = self.cnn_test_set_x[:100]
+        print('\033[0;33m***********',self.cnn_validate_set_x.shape,self.cnn_test_set_x.shape,'\033[0m')
+        self.cnn_validate_set_y = self.cnn_test_set_y[:100]
         self.cnn_channel = dataloader.load_cnn_channel()
         self.test_set_size=dataloader.load_test_set_size()
 
@@ -35,8 +36,8 @@ class ICNN:
         if (gpu):
             self.device = int(gpu_device.strip().split(',')[0])
             self.cnn.cuda(device=self.device)
-            self.cnn_validate_set_x = self.cnn_test_set_x.cuda(device=self.device)
-            self.cnn_validate_set_y = self.cnn_test_set_y.cuda(device=self.device)
+            self.cnn_validate_set_x = self.cnn_validate_set_x.cuda(device=self.device)
+            self.cnn_validate_set_y = self.cnn_validate_set_y.cuda(device=self.device)
         self.optimizer = optim.Adam(self.cnn.parameters(), lr=learning_rate)
 
     def train(self, epoch, batch_size, gpu):
@@ -76,6 +77,7 @@ class ICNN:
                     loss.backward()
                     self.optimizer.step()
                 # print('cnn validate set x',self.cnn_validate_set_x.shape)
+                # print('\033[0;33m&&&&&&&&&&&&&&&&&&&&&&&',self.cnn_validate_set_x.shape,'\033[0m')
                 recon_val = self.cnn(self.cnn_validate_set_x)
                 mse = np.mean((recon_val.cpu().detach().numpy() - self.cnn_validate_set_y.cpu().detach().numpy()) ** 2)
                 pbar.set_postfix_str('mse loss: %.5e' % mse)

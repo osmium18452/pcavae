@@ -53,7 +53,7 @@ def draw_gt_and_recon(gt, recon, labels=None, predicted_anomaly_positions=None, 
                 markeredgewidth=.5, markersize=3)
         ax.plot(miss_positions, miss_y, label='missed', zorder=3, marker='.', linewidth=.5, markerfacecolor="None",
                 markeredgewidth=.5, markersize=3)
-    ax.legend()
+    ax.legend(loc='lower right')
     if title is not None:
         ax.set_title(title)
 
@@ -85,13 +85,16 @@ def cal_metrics(gt, predicted, total):
 if __name__ == '__main__':
     mp.set_start_method('spawn')
     parser = argparse.ArgumentParser()
+    parser.add_argument('-A', '--auto_anomaly_ratio', action='store_true')
     parser.add_argument('-B', '--batch_norm', action='store_true')
     parser.add_argument('-D', '--draw', action='store_true')
     parser.add_argument('-G', "--gpu", action="store_true")
     parser.add_argument('-N', '--normalize_data', action='store_true')
     parser.add_argument('-M', '--draw_mse', action='store_true')
     parser.add_argument('-P', '--parallel', action='store_true')
-    parser.add_argument('-a', '--anomaly_ratio', default=0.05, type=float)
+    parser.add_argument('-T', '--infer_train_set', action='store_true')
+    parser.add_argument('-a', '--anomaly_ratio', default=0.05, type=float,
+                        help='smd: 0.05, swat: 0.1214, wadi.old: 0.0384, wadi.new: 0.0577')
     parser.add_argument("-b", "--batch_size", default=1024, type=int)
     parser.add_argument("-c", "--cnn_window_size", default=20, type=int)
     parser.add_argument('-d', '--dpi', default=300, type=int)
@@ -103,6 +106,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--process', default=None, type=int)
     parser.add_argument('-s', '--save_dir', default='save/tmp', type=str)
     parser.add_argument('-v', '--vae_window_size', default=1, type=int)
+    parser.add_argument('--dataset', default='smd', type=str)
     parser.add_argument('--which_set', default='1-1', type=str)
     parser.add_argument('--which_model', default='vae', type=str)
     args = parser.parse_args()
@@ -110,7 +114,6 @@ if __name__ == '__main__':
 
     latent_size = args.latent
     draw = args.draw
-    anomaly_ratio = args.anomaly_ratio
     batch_norm = args.batch_norm
     gpu = args.gpu
     learning_rate = args.learning_rate
@@ -128,6 +131,24 @@ if __name__ == '__main__':
     vae_window_size = args.vae_window_size
     dpi = args.dpi
     draw_mse = args.draw_mse and draw
+    dataset = args.dataset
+    auto_anomaly_ratio = args.auto_anomaly_ratio
+    infer_train_set = args.infer_train_set
+    if auto_anomaly_ratio:
+        if dataset == 'smd':
+            anomaly_ratio = 0.05
+        elif dataset == 'swat':
+            anomaly_ratio = 0.1214
+        elif dataset == 'wadi.old':
+            anomaly_ratio = 0.0384
+        elif dataset == 'wadi.new':
+            anomaly_ratio = 0.0577
+        else:
+            anomaly_ratio = None
+            print('invalid dataset')
+            exit()
+    else:
+        anomaly_ratio = args.anomaly_ratio
 
     print('\033[0;34m program begin \033[0m')
 
@@ -140,38 +161,60 @@ if __name__ == '__main__':
     else:
         data_dir = '/remote-home/liuwenbo/pycproj/tsdata/data'
         map_dir = '/remote-home/liuwenbo/pycproj/tsdata/maps/npmap'
-    dataset = 'smd'
-    map = 'machine-' + which_set + '.npmap.pkl'
-    train_set_file = os.path.join(data_dir, dataset, 'train/machine-' + which_set + '.pkl')
-    test_set_file = os.path.join(data_dir, dataset, 'test/machine-' + which_set + '.pkl')
-    label_file = os.path.join(data_dir, dataset, 'label/machine-' + which_set + '.pkl')
-    map_file = os.path.join(map_dir, map)
 
-    dataloader = DataLoader(train_set_file, test_set_file, label_file, normalize=normalize)
+    if dataset == 'smd':
+        map = 'machine-' + which_set + '.npmap.pkl'
+        train_set_file = os.path.join(data_dir, dataset, 'train/machine-' + which_set + '.pkl')
+        test_set_file = os.path.join(data_dir, dataset, 'test/machine-' + which_set + '.pkl')
+        label_file = os.path.join(data_dir, dataset, 'label/machine-' + which_set + '.pkl')
+        dataloader = DataLoader(train_set_file, test_set_file, label_file, normalize=normalize)
+    elif dataset == 'wadi.old':
+        pack_file = os.path.join(data_dir, dataset, 'raw.data.pkl')
+        map = 'wadi.old.npmap.pkl'
+        dataloader = DataLoader(normalize=normalize, pack_file=pack_file)
+    elif dataset == 'wadi.new':
+        pack_file = os.path.join(data_dir, dataset, 'raw.data.pkl')
+        map = 'wadi.new.npmap.pkl'
+        dataloader = DataLoader(normalize=normalize, pack_file=pack_file)
+    elif dataset == 'swat':
+        pack_file = os.path.join(data_dir, dataset, 'raw.data.pkl')
+        map = 'swat.npmap.pkl'
+        dataloader = DataLoader(normalize=normalize, pack_file=pack_file)
+    else:
+        dataloader = None
+        map = None
+        print('data unavaliable')
+        exit()
+
+    map_file = os.path.join(map_dir, map)
     dataloader.prepare_data(map_file, cnn_window_size=cnn_window_size, vae_window_size=vae_window_size)
     # dataloader.draw_train_set()
 
+    ivae_train_recon = None
     if which_model == 'cvae':
         print('\033[0;35m using cvae \033[0m')
         icvae = ICVAE(dataloader, latent_size, gpu, learning_rate, gpu_device)
         icvae.train_vaes_in_serial(epoch, batch_size, gpu)
         ivae_recon = icvae.infer_in_serial(batch_size, gpu)
-        ivae_train_recon = icvae.infer_in_serial_train_set(batch_size, gpu).transpose()
+        if infer_train_set:
+            ivae_train_recon = icvae.infer_in_serial_train_set(batch_size, gpu).transpose()
     elif which_model == 'lstmcvae':
         print('\033[0;35m using lstmcvae \033[0m')
         ilstmcvae = ILSTMCVAE(dataloader, latent_size, gpu, learning_rate, gpu_device)
         ilstmcvae.train_vaes_in_serial(epoch, batch_size, gpu)
         ivae_recon = ilstmcvae.infer_in_serial(batch_size, gpu)
-        ivae_train_recon = ilstmcvae.infer_in_serial_train_set(batch_size, gpu).transpose()
+        if infer_train_set:
+            ivae_train_recon = ilstmcvae.infer_in_serial_train_set(batch_size, gpu).transpose()
     else:
         print('\033[0;35m using vae \033[0m')
         ivae = IVAE(dataloader, latent_size, gpu, learning_rate, gpu_device, batch_norm)
         if parallel:
-            ivae.train_vaes_in_parallel(epoch, batch_size, gpu,proc=process)
+            ivae.train_vaes_in_parallel(epoch, batch_size, gpu, proc=process)
         else:
             ivae.train_vaes_in_serial(epoch, batch_size, gpu, figfile=figfile)
         ivae_recon = ivae.infer_in_serial(batch_size, gpu)
-        ivae_train_recon = ivae.infer_in_serial_train_set(batch_size, gpu).transpose()
+        if infer_train_set:
+            ivae_train_recon = ivae.infer_in_serial_train_set(batch_size, gpu).transpose()
 
     icnn = ICNN(dataloader, cnn_window_size, gpu, learning_rate, gpu_device)
     try:
@@ -202,6 +245,23 @@ if __name__ == '__main__':
         ground_truth = vae_ground_truth.transpose()
 
     mse_list = np.max((recon - ground_truth) ** 2, axis=0)
+    # mse_ori_mean=np.squeeze(np.mean((recon - ground_truth) ** 2, axis=1))
+    # mse_ori_max=np.squeeze(np.max((recon - ground_truth) ** 2, axis=1))
+    # mse_ori_min=np.squeeze(np.min((recon - ground_truth) ** 2, axis=1))
+    # print(mse_ori_mean)
+    # print(mse_ori_max)
+    # print(mse_ori_min)
+    mse_matrix_sorted = np.sort(((recon - ground_truth) ** 2), axis=1)
+    mse_matrix=((recon - ground_truth) ** 2)
+    print('mse mat', mse_matrix_sorted.shape)
+    fig,(ax1,ax2)=plt.subplots(2,1)
+    ax1.imshow(mse_matrix_sorted)
+    ax1.set_aspect(1000)
+    ax2.imshow(mse_matrix)
+    ax2.set_aspect(1000)
+    fig.savefig(os.path.join(save_dir, 'mse.mat.sort.png'), dpi=dpi)
+    plt.close(fig)
+
     if normalize:
         test_std, test_mean = dataloader.load_test_set_norm_params()
         print(recon.shape, test_std.shape, test_mean.shape)
@@ -210,6 +270,7 @@ if __name__ == '__main__':
 
     obvious_abnormal_position = dataloader.load_obvious_abnormal_positions()
     obvious_abnormal_num = obvious_abnormal_position.shape
+    print('\033[0;33mobviously anomaly num\033[0m', obvious_abnormal_num)
     anomaly_num = int(dataloader.load_test_set_size() * anomaly_ratio)
     suspicious_anomalies = np.setdiff1d((np.argsort(mse_list)[::-1])[:anomaly_num], obvious_abnormal_position,
                                         assume_unique=True)
@@ -225,6 +286,8 @@ if __name__ == '__main__':
     recall, precision, f1 = cal_metrics(np.where(labels == 1)[0], predicted_anomaly_positions.astype(int),
                                         dataloader.load_test_set_size())
     mse = np.mean((recon - ground_truth) ** 2)
+    # mse_each_dim = np.squeeze(np.mean((recon - ground_truth) ** 2, axis=1))
+    # print('mse each dim',mse_each_dim)
     print('\033[0;31m', 'recall: %.3f, precision: %.3f, f1: %.3f, mse: %.5f' % (recall, precision, f1, mse),
           '\033[0m')
 
@@ -250,11 +313,14 @@ if __name__ == '__main__':
         print('test recon done')
 
         fig, (ax1, ax2) = plt.subplots(2, 1)
-        abnormal_point = np.zeros(ground_truth.shape[1])
-        abnormal_point[np.where(labels == 1)] = 1.
-        abnormal_point = abnormal_point.reshape(1, -1).repeat(200, axis=0)
-        ax1.imshow(np.repeat(ground_truth, 200, axis=0), label='train')
-        ax2.imshow(np.repeat(recon, 200, axis=0), label='test')
+        # abnormal_point = np.zeros(ground_truth.shape[1])
+        # abnormal_point[np.where(labels == 1)] = 1.
+        # abnormal_point = abnormal_point.reshape(1, -1).repeat(200, axis=0)
+        ax1.imshow(ground_truth, label='train')
+        ax2.imshow(recon, label='test')
+        aspect_ratio = 200
+        ax1.set_aspect(aspect_ratio)
+        ax2.set_aspect(aspect_ratio)
         # ax3.imshow(abnormal_point)
         ax1.set_title('test ground truth')
         ax2.set_title('test recon')
@@ -267,52 +333,57 @@ if __name__ == '__main__':
         fig.savefig(os.path.join(save_dir, 'test.and.recon.fig.png'), dpi=dpi)
         plt.close(fig)
 
-        pool = mp.Pool()
-        if cnn_train_recon is not None:
-            train_set_recon = np.concatenate((cnn_train_recon, ivae_train_recon), axis=0)
-        else:
-            train_set_recon = ivae_train_recon
-        train_set_ground_truth = dataloader.load_train_set_ground_truth()
-        if normalize:
-            train_std, train_mean = dataloader.load_train_set_norm_params()
-            # train_std = train_std[dataloader.root_var.shape[0]:]
-            # train_mean = train_mean[dataloader.root_var.shape[0]:]
-            train_set_ground_truth = train_set_ground_truth * train_std + train_mean
-            train_set_recon = train_set_recon * train_std + train_mean
-
-        print('\033[0;33mtrain set ground truth shape \033[0m', train_set_ground_truth.shape[0])
-        for i in range(train_set_ground_truth.shape[0]):
-            if i < cnn_num:
-                title = 'cnn'
+        if infer_train_set:
+            pool = mp.Pool()
+            if cnn_train_recon is not None:
+                train_set_recon = np.concatenate((cnn_train_recon, ivae_train_recon), axis=0)
             else:
-                title = 'lstm'
-            pool.apply_async(draw_gt_and_recon, args=(train_set_ground_truth[i], train_set_recon[i], None, None, None,
-                                                      os.path.join(save_dir, 'train_recon_gt' + str(i) + '.png'), dpi,
-                                                      title))
-        pool.close()
-        pool.join()
-        print('train recon done')
+                train_set_recon = ivae_train_recon
+            train_set_ground_truth = dataloader.load_train_set_ground_truth()
+            if normalize:
+                train_std, train_mean = dataloader.load_train_set_norm_params()
+                # train_std = train_std[dataloader.root_var.shape[0]:]
+                # train_mean = train_mean[dataloader.root_var.shape[0]:]
+                train_set_ground_truth = train_set_ground_truth * train_std + train_mean
+                train_set_recon = train_set_recon * train_std + train_mean
 
-        fig, (ax1, ax2) = plt.subplots(2, 1)
-        ax1.imshow(np.repeat(train_set_ground_truth, 200, axis=0), label='train')
-        ax2.imshow(np.repeat(train_set_recon, 200, axis=0), label='test')
-        ax1.set_title('train ground truth')
-        ax2.set_title('train recon')
-        ax1.set_yticks([])
-        ax2.set_yticks([])
-        fig.tight_layout()
-        fig.set_dpi(dpi)
-        fig.savefig(os.path.join(save_dir, 'train.and.recon.fig.png'), dpi=dpi)
-        plt.close(fig)
+            print('\033[0;33mtrain set ground truth shape \033[0m', train_set_ground_truth.shape[0])
+            for i in range(train_set_ground_truth.shape[0]):
+                if i < cnn_num:
+                    title = 'cnn'
+                else:
+                    title = 'lstm'
+                pool.apply_async(draw_gt_and_recon, args=(
+                    train_set_ground_truth[i], train_set_recon[i], None, None, None,
+                    os.path.join(save_dir, 'train_recon_gt' + str(i) + '.png'), dpi, title))
+            pool.close()
+            pool.join()
+            print('train recon done')
 
-        fig, (ax1, ax2) = plt.subplots(2, 1)
-        ax1.imshow(np.repeat((train_set_ground_truth - train_set_recon) ** 2, 200, axis=0), label='train')
-        ax2.imshow(np.repeat((ground_truth - recon) ** 2, 200, axis=0), label='test')
-        ax1.set_title('train mse')
-        ax2.set_title('test mse')
-        ax1.set_yticks([])
-        ax2.set_yticks([])
-        fig.tight_layout()
-        fig.set_dpi(dpi)
-        fig.savefig(os.path.join(save_dir, 'mse.png'), dpi=dpi)
-        plt.close(fig)
+            fig, (ax1, ax2) = plt.subplots(2, 1)
+            ax1.imshow(train_set_ground_truth, label='train')
+            ax2.imshow(train_set_recon, label='test')
+            ax1.set_aspect(aspect_ratio)
+            ax2.set_aspect(aspect_ratio)
+            ax1.set_title('train ground truth')
+            ax2.set_title('train recon')
+            ax1.set_yticks([])
+            ax2.set_yticks([])
+            fig.tight_layout()
+            fig.set_dpi(dpi)
+            fig.savefig(os.path.join(save_dir, 'train.and.recon.fig.png'), dpi=dpi)
+            plt.close(fig)
+
+            fig, (ax1, ax2) = plt.subplots(2, 1)
+            ax1.imshow((train_set_ground_truth - train_set_recon) ** 2, label='train')
+            ax2.imshow((ground_truth - recon) ** 2, label='test')
+            ax1.set_aspect(aspect_ratio)
+            ax2.set_aspect(aspect_ratio)
+            ax1.set_title('train mse')
+            ax2.set_title('test mse')
+            ax1.set_yticks([])
+            ax2.set_yticks([])
+            fig.tight_layout()
+            fig.set_dpi(dpi)
+            fig.savefig(os.path.join(save_dir, 'mse.png'), dpi=dpi)
+            plt.close(fig)

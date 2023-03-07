@@ -6,22 +6,33 @@ import numpy as np
 
 
 class DataLoader:
-    def __init__(self, train_set_file, test_set_file, label_file, normalize=False):
+    def __init__(self, train_set_file=None, test_set_file=None, label_file=None, normalize=False, pack_file=None):
         self.cnn_train_set = None
-        f = open(train_set_file, 'rb')
-        self.train_set: np.ndarray
-        self.train_data = pickle.load(f).transpose()
-        f.close()
+        if pack_file is not None:
+            data_pack=pickle.load(open(pack_file,'rb'))
+            self.train_data=data_pack['train'].transpose()
+            self.test_data=data_pack['test'].transpose()
+            self.labels=data_pack['label']
+            print(self.train_data.shape,self.test_data.shape,self.labels.shape)
+            print(np.sum(self.labels))
+            # exit()
+        else:
+            f = open(train_set_file, 'rb')
+            self.train_set: np.ndarray
+            self.train_data = pickle.load(f).transpose()
+            f.close()
 
-        f = open(test_set_file, 'rb')
-        self.test_set: np.ndarray
-        self.test_data = pickle.load(f).transpose()
-        f.close()
+            f = open(test_set_file, 'rb')
+            self.test_set: np.ndarray
+            self.test_data = pickle.load(f).transpose()
+            f.close()
 
-        f = open(label_file, 'rb')
-        self.labels: np.ndarray
-        self.labels = pickle.load(f)
-        f.close()
+            f = open(label_file, 'rb')
+            self.labels: np.ndarray
+            self.labels = pickle.load(f)
+            f.close()
+            print(self.train_data.shape,self.test_data.shape,self.labels.shape)
+
 
         self.train_data_size = self.train_data.shape[1]
         self.test_data_size = self.test_data.shape[1]
