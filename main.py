@@ -268,7 +268,8 @@ if __name__ == '__main__':
         recon = recon * test_std + test_mean
         ground_truth = ground_truth * test_std + test_mean
 
-    obvious_abnormal_position = dataloader.load_obvious_abnormal_positions()
+    # obvious_abnormal_position = dataloader.load_obvious_abnormal_positions()
+    obvious_abnormal_position=np.array([0,])
     obvious_abnormal_num = obvious_abnormal_position.shape
     print('\033[0;33mobviously anomaly num\033[0m', obvious_abnormal_num)
     anomaly_num = int(dataloader.load_test_set_size() * anomaly_ratio)
