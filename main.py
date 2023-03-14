@@ -5,7 +5,7 @@ import pickle
 import platform
 
 import matplotlib.pyplot as plt
-
+from scipy.stats import norm
 import torch
 from torch import optim
 
@@ -92,6 +92,7 @@ if __name__ == '__main__':
     parser.add_argument('-N', '--normalize_data', action='store_true')
     parser.add_argument('-M', '--draw_mse', action='store_true')
     parser.add_argument('-P', '--parallel', action='store_true')
+    parser.add_argument('-S', '--absolute_noise', action='store_true')
     parser.add_argument('-T', '--infer_train_set', action='store_true')
     parser.add_argument('-a', '--anomaly_ratio', default=0.05, type=float,
                         help='smd: 0.05, swat: 0.1214, wadi.old: 0.0384, wadi.new: 0.0577')
@@ -134,6 +135,7 @@ if __name__ == '__main__':
     dataset = args.dataset
     auto_anomaly_ratio = args.auto_anomaly_ratio
     infer_train_set = args.infer_train_set
+    absolute_noise = args.absolute_noise
     if auto_anomaly_ratio:
         if dataset == 'smd':
             anomaly_ratio = 0.05
@@ -245,22 +247,17 @@ if __name__ == '__main__':
         ground_truth = vae_ground_truth.transpose()
 
     mse_list = np.max((recon - ground_truth) ** 2, axis=0)
-    # mse_ori_mean=np.squeeze(np.mean((recon - ground_truth) ** 2, axis=1))
-    # mse_ori_max=np.squeeze(np.max((recon - ground_truth) ** 2, axis=1))
-    # mse_ori_min=np.squeeze(np.min((recon - ground_truth) ** 2, axis=1))
-    # print(mse_ori_mean)
-    # print(mse_ori_max)
-    # print(mse_ori_min)
     mse_matrix_sorted = np.sort(((recon - ground_truth) ** 2), axis=1)
-    mse_matrix=((recon - ground_truth) ** 2)
+    mse_matrix = ((recon - ground_truth) ** 2)
     print('mse mat', mse_matrix_sorted.shape)
-    fig,(ax1,ax2)=plt.subplots(2,1)
-    ax1.imshow(mse_matrix_sorted)
-    ax1.set_aspect(1000)
-    ax2.imshow(mse_matrix)
-    ax2.set_aspect(1000)
-    fig.savefig(os.path.join(save_dir, 'mse.mat.sort.png'), dpi=dpi)
-    plt.close(fig)
+    if draw:
+        fig, (ax1, ax2) = plt.subplots(2, 1)
+        ax1.imshow(mse_matrix_sorted)
+        ax1.set_aspect(1000)
+        ax2.imshow(mse_matrix)
+        ax2.set_aspect(1000)
+        fig.savefig(os.path.join(save_dir, 'mse.mat.sort.png'), dpi=dpi)
+        plt.close(fig)
 
     if normalize:
         test_std, test_mean = dataloader.load_test_set_norm_params()
@@ -268,15 +265,33 @@ if __name__ == '__main__':
         recon = recon * test_std + test_mean
         ground_truth = ground_truth * test_std + test_mean
 
+    if absolute_noise:
+        err_list = np.absolute(recon - ground_truth)
+    else:
+        err_list = (recon - ground_truth)
+    print('absolute err: ')
+    print(err_list.shape)
+    print(np.max(err_list), np.min(err_list))
+    mean_list = np.mean(err_list, axis=1)
+    std_list = np.std(err_list, axis=1)
+    prob_density_list = []
+    for i in range(err_list.shape[0]):
+        prob_density_list.append(norm(loc=mean_list[i], scale=std_list[i]).pdf(err_list[i]))
+    prob_density_list = np.array(prob_density_list)
+    print('prob density list shape', prob_density_list.shape)
+
     # obvious_abnormal_position = dataloader.load_obvious_abnormal_positions()
-    obvious_abnormal_position=np.array([0,])
+    # anomaly_score_list=mse_list
+    anomaly_score_list = 1 - np.min(prob_density_list, axis=0)
+    print('anomaly score list shape', anomaly_score_list.shape)
+    obvious_abnormal_position = np.array([0, ])
     obvious_abnormal_num = obvious_abnormal_position.shape
     print('\033[0;33mobviously anomaly num\033[0m', obvious_abnormal_num)
     anomaly_num = int(dataloader.load_test_set_size() * anomaly_ratio)
-    suspicious_anomalies = np.setdiff1d((np.argsort(mse_list)[::-1])[:anomaly_num], obvious_abnormal_position,
+    suspicious_anomalies = np.setdiff1d((np.argsort(anomaly_score_list)[::-1])[:anomaly_num], obvious_abnormal_position,
                                         assume_unique=True)
     print('\033[0;33msuspicous anomalies\033[0m', suspicious_anomalies.shape)
-    print('\033[0;33mmse list sorted\033[0m', mse_list[suspicious_anomalies].shape)
+    print('\033[0;33mmse list sorted\033[0m', anomaly_score_list[suspicious_anomalies].shape)
     predicted_anomaly_positions = np.sort(
         np.concatenate((obvious_abnormal_position, suspicious_anomalies))[:anomaly_num])
     print('anomaly position dtype', predicted_anomaly_positions.dtype, suspicious_anomalies.dtype,
