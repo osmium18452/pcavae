@@ -12,7 +12,7 @@ class ICNN:
         self.dataloader=dataloader
         self.train_set_size = dataloader.load_train_set_size()
         self.usable_cnn=False
-        print('train set size:',self.train_set_size)
+        # print('train set size:',self.train_set_size)
         try:
             cnn_train_set_x, cnn_train_set_y = dataloader.load_cnn_train_set()
             cnn_test_set_x, cnn_test_set_y = dataloader.load_cnn_test_set()
@@ -25,12 +25,12 @@ class ICNN:
         self.cnn_test_set_x = torch.Tensor(cnn_test_set_x)
         self.cnn_test_set_y = torch.Tensor(cnn_test_set_y)
         self.cnn_validate_set_x = self.cnn_test_set_x[:100]
-        print('\033[0;33m***********',self.cnn_validate_set_x.shape,self.cnn_test_set_x.shape,'\033[0m')
+        # print('\033[0;33m***********',self.cnn_validate_set_x.shape,self.cnn_test_set_x.shape,'\033[0m')
         self.cnn_validate_set_y = self.cnn_test_set_y[:100]
         self.cnn_channel = dataloader.load_cnn_channel()
         self.test_set_size=dataloader.load_test_set_size()
 
-        print('cnn train set shape', self.cnn_train_set_x.shape, self.cnn_train_set_y.shape)
+        # print('cnn train set shape', self.cnn_train_set_x.shape, self.cnn_train_set_y.shape)
 
         self.cnn = CNN(self.cnn_channel, window_size)
         if (gpu):

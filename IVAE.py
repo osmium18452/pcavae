@@ -27,7 +27,7 @@ class IVAE:
         label_set = dataloader.load_label_set()
 
         self.vae_dim_list = dataloader.load_vae_dim_list()
-        print('vae dim list:', self.vae_dim_list)
+        # print('vae dim list:', self.vae_dim_list)
 
         self.label_set = torch.Tensor(label_set)
         self.vae_train_set = []
@@ -43,7 +43,7 @@ class IVAE:
         self.vae_optimizer_list = []
         self.vae_num = dataloader.load_vae_num()
         self.vae_device_list = self.get_device_list(gpu_device, vae_num=self.vae_num)
-        print('device list', self.vae_device_list, gpu_device)
+        # print('device list', self.vae_device_list, gpu_device)
         pbar = tqdm(total=len(self.vae_dim_list), ascii=True)
         pbar.set_description('initiating vaes...')
         for i, size in enumerate(self.vae_dim_list):

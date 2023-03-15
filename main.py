@@ -65,22 +65,31 @@ def draw_gt_and_recon(gt, recon, labels=None, predicted_anomaly_positions=None, 
     plt.close(fig)
 
 
-def cal_metrics(gt, predicted, total,give_metpfptnfn=False):
+def cal_metrics(gt, predicted, total, give_metpfptnfn=False, point_adjustment=False, window_size=None):
     gt_oz = np.zeros(total, dtype=float)
     gt_oz[gt] += 1.
     pred_oz = np.zeros(total, dtype=float)
     pred_oz[predicted] += 1.
+
+    if point_adjustment and window_size is not None:
+        print('point adjustment')
+        for i in range(total)[window_size:][::-1]:
+            if pred_oz[i] == 1.:
+                for j in range(window_size):
+                    if gt_oz[i - j] == 1.:
+                        pred_oz[i] = 1.
+
     tp = np.where((pred_oz == 1) & (gt_oz == 1), 1., 0.).sum()
     fp = np.where((pred_oz == 1) & (gt_oz == 0), 1., 0.).sum()
     tn = np.where((pred_oz == 0) & (gt_oz == 0), 1., 0.).sum()
     fn = np.where((pred_oz == 0) & (gt_oz == 1), 1., 0.).sum()
-    print('tp fp tn fn',tp, fp, tn, fn)
+    print('tp fp tn fn', tp, fp, tn, fn)
     print(gt_oz.sum(), pred_oz.sum())
     recall = tp / (tp + fn)
     precision = tp / (tp + fp)
     f1 = 2 * precision * recall / (precision + recall)
     if give_metpfptnfn:
-        return (recall,precision,f1),(tp,fp,tn,fn)
+        return (recall, precision, f1), (tp, fp, tn, fn)
     else:
         return recall, precision, f1
 
@@ -95,6 +104,7 @@ if __name__ == '__main__':
     parser.add_argument('-G', "--gpu", action="store_true")
     parser.add_argument('-N', '--normalize_data', action='store_true')
     parser.add_argument('-M', '--draw_mse', action='store_true')
+    parser.add_argument('-O', '--point_adjustment', action='store_true')
     parser.add_argument('-P', '--parallel', action='store_true')
     parser.add_argument('-S', '--absolute_noise', action='store_true')
     parser.add_argument('-T', '--infer_train_set', action='store_true')
@@ -140,6 +150,7 @@ if __name__ == '__main__':
     auto_anomaly_ratio = args.auto_anomaly_ratio
     infer_train_set = args.infer_train_set
     absolute_noise = args.absolute_noise
+    point_adjustment = args.point_adjustment
     if auto_anomaly_ratio:
         if dataset == 'smd':
             anomaly_ratio = 0.05
@@ -238,11 +249,11 @@ if __name__ == '__main__':
     else:
         vae_ground_truth = dataloader.load_cvae_test_ground_truth()
     labels = np.squeeze(dataloader.load_label_set())
-    print(labels.shape)
+    # print(labels.shape)
 
     try:
-        print('-------------------------')
-        print('\033[0;35m', type(ivae_recon), type(cnn_recon), '\033[0m')
+        # print('-------------------------')
+        # print('\033[0;35m', type(ivae_recon), type(cnn_recon), '\033[0m')
         recon = np.concatenate((cnn_recon.transpose(), ivae_recon.transpose()), axis=0)
         ground_truth = np.concatenate((cnn_ground_truth.transpose(), vae_ground_truth.transpose()), axis=0)
     except Exception as E:
@@ -253,7 +264,7 @@ if __name__ == '__main__':
     mse_list = np.max((recon - ground_truth) ** 2, axis=0)
     mse_matrix_sorted = np.sort(((recon - ground_truth) ** 2), axis=1)
     mse_matrix = ((recon - ground_truth) ** 2)
-    print('mse mat', mse_matrix_sorted.shape)
+    # print('mse mat', mse_matrix_sorted.shape)
     if draw:
         fig, (ax1, ax2) = plt.subplots(2, 1)
         ax1.imshow(mse_matrix_sorted)
@@ -303,15 +314,18 @@ if __name__ == '__main__':
     # print('pred and shape',predicted_anomaly_positions)
 
     # calculate scores
-    (recall, precision, f1),(tp,fp,tn,fn) = cal_metrics(np.where(labels == 1)[0], predicted_anomaly_positions.astype(int),
-                                        dataloader.load_test_set_size(),give_metpfptnfn=True)
+    (recall, precision, f1), (tp, fp, tn, fn) = cal_metrics(np.where(labels == 1)[0],
+                                                            predicted_anomaly_positions.astype(int),
+                                                            dataloader.load_test_set_size(), give_metpfptnfn=True,
+                                                            point_adjustment=point_adjustment,
+                                                            window_size=vae_window_size)
     mse = np.mean((recon - ground_truth) ** 2)
     # mse_each_dim = np.squeeze(np.mean((recon - ground_truth) ** 2, axis=1))
     # print('mse each dim',mse_each_dim)
-    print('\033[0;31m', 'recall: %.3f, precision: %.3f, f1: %.3f, mse: %.5f' % (recall, precision, f1, mse),
+    print('\033[0;31m', 'recall: %.3f, precision: %.3f, f1: %.3f, mse: %.5f' % (recall, precision, f1, float(mse)),
           '\033[0m')
 
-    print('recall: %.3f, precision: %.3f, f1: %.3f' % (recall, precision, f1), 'tp fp tn fn',(tp,fp,tn,fn),args,
+    print('recall: %.3f, precision: %.3f, f1: %.3f' % (recall, precision, f1), 'tp fp tn fn', (tp, fp, tn, fn), args,
           file=open(os.path.join(save_dir, 'summary.txt'), 'w'), sep='\n')
 
     # draw
