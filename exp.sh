@@ -1,63 +1,24 @@
-epoch=50
+#!/bin/bash
 dpi=300
 windowsize=20
-save_root=save/23.02.24/formal/lstmcvae
+batch_size=10000
+save_root=save/23.03.15/window/
 gpu=3
 
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'1-1 ' --which_model lstmcvae --which_set 1-1  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'1-2 ' --which_model lstmcvae --which_set 1-2  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'1-3 ' --which_model lstmcvae --which_set 1-3  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'1-4 ' --which_model lstmcvae --which_set 1-4  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'1-5 ' --which_model lstmcvae --which_set 1-5  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'1-6 ' --which_model lstmcvae --which_set 1-6  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'1-7 ' --which_model lstmcvae --which_set 1-7  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'1-8 ' --which_model lstmcvae --which_set 1-8  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'2-1 ' --which_model lstmcvae --which_set 2-1  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'2-2 ' --which_model lstmcvae --which_set 2-2  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'2-3 ' --which_model lstmcvae --which_set 2-3  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'2-4 ' --which_model lstmcvae --which_set 2-4  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'2-5 ' --which_model lstmcvae --which_set 2-5  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'2-6 ' --which_model lstmcvae --which_set 2-6  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'2-7 ' --which_model lstmcvae --which_set 2-7  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'2-8 ' --which_model lstmcvae --which_set 2-8  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'2-9 ' --which_model lstmcvae --which_set 2-9  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'3-1 ' --which_model lstmcvae --which_set 3-1  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'3-2 ' --which_model lstmcvae --which_set 3-2  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'3-3 ' --which_model lstmcvae --which_set 3-3  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'3-4 ' --which_model lstmcvae --which_set 3-4  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'3-5 ' --which_model lstmcvae --which_set 3-5  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'3-6 ' --which_model lstmcvae --which_set 3-6  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'3-7 ' --which_model lstmcvae --which_set 3-7  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'3-8 ' --which_model lstmcvae --which_set 3-8  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'3-9 ' --which_model lstmcvae --which_set 3-9  -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'3-10' --which_model lstmcvae --which_set 3-10 -GND -d $dpi
-python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'3-11' --which_model lstmcvae --which_set 3-11 -GND -d $dpi
-#
-#python main.py -g 3 -e $epoch -s $save_root'cvae.1-1 ' --which_model cvae -v 20 --which_set 1-1  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.1-2 ' --which_model cvae -v 20 --which_set 1-2  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.1-3 ' --which_model cvae -v 20 --which_set 1-3  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.1-4 ' --which_model cvae -v 20 --which_set 1-4  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.1-5 ' --which_model cvae -v 20 --which_set 1-5  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.1-6 ' --which_model cvae -v 20 --which_set 1-6  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.1-7 ' --which_model cvae -v 20 --which_set 1-7  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.1-8 ' --which_model cvae -v 20 --which_set 1-8  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.2-1 ' --which_model cvae -v 20 --which_set 2-1  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.2-2 ' --which_model cvae -v 20 --which_set 2-2  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.2-3 ' --which_model cvae -v 20 --which_set 2-3  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.2-4 ' --which_model cvae -v 20 --which_set 2-4  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.2-5 ' --which_model cvae -v 20 --which_set 2-5  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.2-6 ' --which_model cvae -v 20 --which_set 2-6  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.2-7 ' --which_model cvae -v 20 --which_set 2-7  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.2-8 ' --which_model cvae -v 20 --which_set 2-8  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.2-9 ' --which_model cvae -v 20 --which_set 2-9  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.3-1 ' --which_model cvae -v 20 --which_set 3-1  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.3-2 ' --which_model cvae -v 20 --which_set 3-2  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.3-3 ' --which_model cvae -v 20 --which_set 3-3  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.3-4 ' --which_model cvae -v 20 --which_set 3-4  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.3-5 ' --which_model cvae -v 20 --which_set 3-5  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.3-6 ' --which_model cvae -v 20 --which_set 3-6  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.3-7 ' --which_model cvae -v 20 --which_set 3-7  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.3-8 ' --which_model cvae -v 20 --which_set 3-8  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.3-9 ' --which_model cvae -v 20 --which_set 3-9  -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.3-10' --which_model cvae -v 20 --which_set 3-10 -GND -d $dpi
-#python main.py -g 3 -e $epoch -s $save_root'cvae.3-11' --which_model cvae -v 20 --which_set 3-11 -GND -d $dpi
+#python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'swat.lstmcvae'     --which_model lstmcvae  --dataset swat     -GNDTASO -d $dpi -b $batch_size
+#python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'swat.lstmcvae'     --which_model lstmcvae  --dataset swat     -GNDTAS  -d $dpi -b $batch_size
+#exit
+for i in {1..10}
+do
+  echo $i
+  epoch=`expr ${i} \* 10`
+  python main.py -v $windowsize -g $gpu -e $epoch -s $save_root$epoch'/swat.lstmcvae' --which_model lstmcvae --dataset swat -GNDTASO -d $dpi -b $batch_size
+  python main.py -v $windowsize -g $gpu -e $epoch -s $save_root$epoch'/swat.cvae' --which_model cvae --dataset swat -GNDTASO -d $dpi -b $batch_size
+  python main.py -g $gpu -e $epoch -s $save_root$epoch'/swat.vae' --which_model vae --dataset swat -GNDTASO -d $dpi -b $batch_size
+  python main.py -v $windowsize -g $gpu -e $epoch -s $save_root$epoch'/wadi.new.lstmcvae' --which_model lstmcvae --dataset wadi.new -GNDTASO -d $dpi -b $batch_size
+  python main.py -v $windowsize -g $gpu -e $epoch -s $save_root$epoch'/wadi.new.cvae' --which_model cvae --dataset wadi.new -GNDTASO -d $dpi -b $batch_size
+  python main.py -g $gpu -e $epoch -s $save_root$epoch'/wadi.new.vae' --which_model vae --dataset wadi.new -GNDTASO -d $dpi -b $batch_size
+  python main.py -v $windowsize -g $gpu -e $epoch -s $save_root$epoch'/wadi.old.lstmcvae' --which_model lstmcvae --dataset wadi.old -GNDTASO -d $dpi -b $batch_size
+  python main.py -v $windowsize -g $gpu -e $epoch -s $save_root$epoch'/wadi.old.cvae' --which_model cvae --dataset wadi.old -GNDTASO -d $dpi -b $batch_size
+  python main.py -g $gpu -e $epoch -s $save_root$epoch'/wadi.old.vae' --which_model vae --dataset wadi.old -GNDTASO -d $dpi -b $batch_size
+done
