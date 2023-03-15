@@ -32,13 +32,14 @@ def draw_gt_and_recon(gt, recon, labels=None, predicted_anomaly_positions=None, 
     if labels is not None:
         x_labels = np.where(labels == 1)
         y_labels = gt[x_labels]
-        ax.scatter(x_labels, y_labels, color='red', label='true anomaly', zorder=100, s=.5)
+        ax.scatter(x_labels, y_labels, color='red', label='true anomaly', zorder=100, s=.3)
     if predicted_anomaly_positions is not None:
         y = recon[predicted_anomaly_positions]
-        ax.scatter(predicted_anomaly_positions, y, label='pred anomaly', color='darkgreen', zorder=101, s=.5, alpha=0.7)
+        ax.scatter(predicted_anomaly_positions, y, label='pred anomaly', color='darkgreen', zorder=101, s=.3, alpha=0.5)
     if obvious_anomaly_positions is not None:
-        y = recon[obvious_anomaly_positions]
-        ax.scatter(obvious_anomaly_positions, y, color='purple', label='obvious anomaly', zorder=102, s=.5, alpha=0.7)
+        pass
+        # y = recon[obvious_anomaly_positions]
+        # ax.scatter(obvious_anomaly_positions, y, color='purple', label='obvious anomaly', zorder=102, s=.5, alpha=0.7)
     if predicted_anomaly_positions is not None and labels is not None and False:
         highest = np.max(np.concatenate((gt, recon)))
         lowest = np.min(np.concatenate((gt, recon)))
@@ -64,7 +65,7 @@ def draw_gt_and_recon(gt, recon, labels=None, predicted_anomaly_positions=None, 
     plt.close(fig)
 
 
-def cal_metrics(gt, predicted, total):
+def cal_metrics(gt, predicted, total,give_metpfptnfn=False):
     gt_oz = np.zeros(total, dtype=float)
     gt_oz[gt] += 1.
     pred_oz = np.zeros(total, dtype=float)
@@ -73,17 +74,20 @@ def cal_metrics(gt, predicted, total):
     fp = np.where((pred_oz == 1) & (gt_oz == 0), 1., 0.).sum()
     tn = np.where((pred_oz == 0) & (gt_oz == 0), 1., 0.).sum()
     fn = np.where((pred_oz == 0) & (gt_oz == 1), 1., 0.).sum()
-    print(tp, fp, tn, fn)
+    print('tp fp tn fn',tp, fp, tn, fn)
     print(gt_oz.sum(), pred_oz.sum())
     recall = tp / (tp + fn)
     precision = tp / (tp + fp)
     f1 = 2 * precision * recall / (precision + recall)
-    return recall, precision, f1
+    if give_metpfptnfn:
+        return (recall,precision,f1),(tp,fp,tn,fn)
+    else:
+        return recall, precision, f1
 
 
 # python main.py -g 2,3,4,5 -GP -p 5 --figfile save/mse.png -e 5
 if __name__ == '__main__':
-    mp.set_start_method('spawn')
+    # mp.set_start_method('spawn')
     parser = argparse.ArgumentParser()
     parser.add_argument('-A', '--auto_anomaly_ratio', action='store_true')
     parser.add_argument('-B', '--batch_norm', action='store_true')
@@ -299,15 +303,15 @@ if __name__ == '__main__':
     # print('pred and shape',predicted_anomaly_positions)
 
     # calculate scores
-    recall, precision, f1 = cal_metrics(np.where(labels == 1)[0], predicted_anomaly_positions.astype(int),
-                                        dataloader.load_test_set_size())
+    (recall, precision, f1),(tp,fp,tn,fn) = cal_metrics(np.where(labels == 1)[0], predicted_anomaly_positions.astype(int),
+                                        dataloader.load_test_set_size(),give_metpfptnfn=True)
     mse = np.mean((recon - ground_truth) ** 2)
     # mse_each_dim = np.squeeze(np.mean((recon - ground_truth) ** 2, axis=1))
     # print('mse each dim',mse_each_dim)
     print('\033[0;31m', 'recall: %.3f, precision: %.3f, f1: %.3f, mse: %.5f' % (recall, precision, f1, mse),
           '\033[0m')
 
-    print('recall: %.3f, precision: %.3f, f1: %.3f' % (recall, precision, f1), args,
+    print('recall: %.3f, precision: %.3f, f1: %.3f' % (recall, precision, f1), 'tp fp tn fn',(tp,fp,tn,fn),args,
           file=open(os.path.join(save_dir, 'summary.txt'), 'w'), sep='\n')
 
     # draw
