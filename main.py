@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 import torch
 from torch import optim
+from sklearn.metrics import roc_auc_score
 
 from DataLoader import DataLoader
 from ILSTMCVAE import ILSTMCVAE
@@ -65,7 +66,7 @@ def draw_gt_and_recon(gt, recon, labels=None, predicted_anomaly_positions=None, 
     plt.close(fig)
 
 
-def cal_metrics(gt, predicted, total, give_metpfptnfn=False, point_adjustment=False, window_size=None):
+def cal_metrics(gt, predicted, total, score, give_metpfptnfn=False, point_adjustment=False, window_size=None):
     gt_oz = np.zeros(total, dtype=float)
     gt_oz[gt] += 1.
     pred_oz = np.zeros(total, dtype=float)
@@ -88,10 +89,13 @@ def cal_metrics(gt, predicted, total, give_metpfptnfn=False, point_adjustment=Fa
     recall = tp / (tp + fn)
     precision = tp / (tp + fp)
     f1 = 2 * precision * recall / (precision + recall)
+    print('score list shape',score.shape)
+    print('ground truth shape',gt_oz.shape)
+    ro_au_score = roc_auc_score(np.asarray(gt_oz,dtype=int), score)
     if give_metpfptnfn:
-        return (recall, precision, f1), (tp, fp, tn, fn)
+        return (recall, precision, f1, ro_au_score), (tp, fp, tn, fn)
     else:
-        return recall, precision, f1
+        return recall, precision, f1, ro_au_score
 
 
 # python main.py -g 2,3,4,5 -GP -p 5 --figfile save/mse.png -e 5
@@ -314,16 +318,20 @@ if __name__ == '__main__':
     # print('pred and shape',predicted_anomaly_positions)
 
     # calculate scores
-    (recall, precision, f1), (tp, fp, tn, fn) = cal_metrics(np.where(labels == 1)[0],
-                                                            predicted_anomaly_positions.astype(int),
-                                                            dataloader.load_test_set_size(), give_metpfptnfn=True,
-                                                            point_adjustment=point_adjustment,
-                                                            window_size=vae_window_size)
+    (recall, precision, f1, auc_score), (tp, fp, tn, fn) = cal_metrics(np.where(labels == 1)[0],
+                                                                       predicted_anomaly_positions.astype(int),
+                                                                       dataloader.load_test_set_size(),
+                                                                       anomaly_score_list,
+                                                                       give_metpfptnfn=True,
+                                                                       point_adjustment=point_adjustment,
+                                                                       window_size=vae_window_size
+                                                                       )
     mse = np.mean((recon - ground_truth) ** 2)
     # mse_each_dim = np.squeeze(np.mean((recon - ground_truth) ** 2, axis=1))
     # print('mse each dim',mse_each_dim)
-    print('\033[0;31m', 'recall: %.3f, precision: %.3f, f1: %.3f, mse: %.5f' % (recall, precision, f1, float(mse)),
-          '\033[0m')
+    # auc=roc_auc_score()
+    print('\033[0;31m', 'recall: %.3f, precision: %.3f, f1: %.3f, roc-auc: %.5f mse: %.5f' % (
+        recall, precision, f1, auc_score, float(mse)), '\033[0m')
 
     print('recall: %.3f, precision: %.3f, f1: %.3f' % (recall, precision, f1), 'tp fp tn fn', (tp, fp, tn, fn), args,
           file=open(os.path.join(save_dir, 'summary.txt'), 'w'), sep='\n')
