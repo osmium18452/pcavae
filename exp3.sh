@@ -2,8 +2,9 @@ epoch=50
 dpi=300
 windowsize=20
 batch_size=10000
-save_root=save/23.03.15/point_adjustment_formal/
-gpu=3
+save_root=save/23.03.24/point_adjustment_formal/
+gpu=$1
+echo $gpu
 
 #python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'swat.lstmcvae'     --which_model lstmcvae  --dataset swat     -GNDTASO -d $dpi -b $batch_size
 #python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'swat.lstmcvae'     --which_model lstmcvae  --dataset swat     -GNDTAS  -d $dpi -b $batch_size

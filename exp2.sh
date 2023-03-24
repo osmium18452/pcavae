@@ -2,8 +2,9 @@ epoch=50
 dpi=300
 windowsize=20
 batch_size=10000
-save_root=save/23.03.14/original_err/
-gpu=1
+save_root=save/23.03.24/original_err/
+gpu=$1
+echo $gpu
 
 python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'wadi.new.lstmcvae' --which_model lstmcvae --dataset wadi.new -GNDTA -d $dpi -b $batch_size
 python main.py -v $windowsize -g $gpu -e $epoch -s $save_root'wadi.new.cvae'     --which_model cvae     --dataset wadi.new -GNDTA -d $dpi -b $batch_size
