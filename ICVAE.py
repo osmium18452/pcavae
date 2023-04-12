@@ -130,6 +130,7 @@ class ICVAE:
 
     def infer_in_serial(self, batch_size, gpu):
         self.recon = np.zeros(self.cvae_num).reshape((1, self.cvae_num))
+        loss = np.zeros(self.cvae_num).reshape((1, self.cvae_num))
         iters = self.test_set_size // batch_size
         with tqdm(total=iters, ascii=True) as pbar:
             pbar.set_description('icvae inferring')

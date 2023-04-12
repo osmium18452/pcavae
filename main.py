@@ -9,6 +9,8 @@ from scipy.stats import norm
 import torch
 from torch import optim
 from sklearn.metrics import roc_auc_score
+import torch.nn.functional as F
+
 
 from DataLoader import DataLoader
 from ILSTMCVAE import ILSTMCVAE
@@ -96,7 +98,6 @@ def cal_metrics(gt, predicted, total, score, give_metpfptnfn=False, point_adjust
         return (recall, precision, f1, ro_au_score), (tp, fp, tn, fn)
     else:
         return recall, precision, f1, ro_au_score
-
 
 # python main.py -g 2,3,4,5 -GP -p 5 --figfile save/mse.png -e 5
 if __name__ == '__main__':
